@@ -1,0 +1,17 @@
+services:
+  humedad-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-https://api.geofal.com.pe}
+    container_name: humedad-crm-frontend
+    ports:
+      - "3008:80"
+    restart: always
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true
