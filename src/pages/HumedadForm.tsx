@@ -20,6 +20,24 @@ const INITIAL_STATE: HumedadPayload = {
     tamano_maximo_particula: '',
     metodo_a: false,
     metodo_b: false,
+    metodo_a_tamano_1: '3 in',
+    metodo_a_tamano_2: '1 1/2 in',
+    metodo_a_tamano_3: '3/4 in',
+    metodo_a_masa_1: '5 kg',
+    metodo_a_masa_2: '1 kg',
+    metodo_a_masa_3: '250 g',
+    metodo_a_legibilidad_1: '0.1 g',
+    metodo_a_legibilidad_2: '0.1 g',
+    metodo_a_legibilidad_3: '0.1 g',
+    metodo_b_tamano_1: '3/8 in',
+    metodo_b_tamano_2: 'No. 4',
+    metodo_b_tamano_3: 'No. 10',
+    metodo_b_masa_1: '500 g',
+    metodo_b_masa_2: '250 g',
+    metodo_b_masa_3: '250 g',
+    metodo_b_legibilidad_1: '0.01 g',
+    metodo_b_legibilidad_2: '0.01 g',
+    metodo_b_legibilidad_3: '0.01 g',
     numero_ensayo: 1,
     recipiente_numero: '',
     masa_recipiente_muestra_humeda: undefined,
@@ -37,6 +55,32 @@ const INITIAL_STATE: HumedadPayload = {
 }
 
 type CondicionKey = 'condicion_masa_menor' | 'condicion_capas' | 'condicion_temperatura' | 'condicion_excluido'
+type MetodoStringKey =
+    | 'metodo_a_tamano_1' | 'metodo_a_tamano_2' | 'metodo_a_tamano_3'
+    | 'metodo_a_masa_1' | 'metodo_a_masa_2' | 'metodo_a_masa_3'
+    | 'metodo_a_legibilidad_1' | 'metodo_a_legibilidad_2' | 'metodo_a_legibilidad_3'
+    | 'metodo_b_tamano_1' | 'metodo_b_tamano_2' | 'metodo_b_tamano_3'
+    | 'metodo_b_masa_1' | 'metodo_b_masa_2' | 'metodo_b_masa_3'
+    | 'metodo_b_legibilidad_1' | 'metodo_b_legibilidad_2' | 'metodo_b_legibilidad_3'
+
+interface MetodoRowConfig {
+    label: string
+    tamanoKey: MetodoStringKey
+    masaKey: MetodoStringKey
+    legibilidadKey: MetodoStringKey
+}
+
+const METHOD_A_ROWS: MetodoRowConfig[] = [
+    { label: 'Fila 43', tamanoKey: 'metodo_a_tamano_1', masaKey: 'metodo_a_masa_1', legibilidadKey: 'metodo_a_legibilidad_1' },
+    { label: 'Fila 44', tamanoKey: 'metodo_a_tamano_2', masaKey: 'metodo_a_masa_2', legibilidadKey: 'metodo_a_legibilidad_2' },
+    { label: 'Fila 45', tamanoKey: 'metodo_a_tamano_3', masaKey: 'metodo_a_masa_3', legibilidadKey: 'metodo_a_legibilidad_3' },
+]
+
+const METHOD_B_ROWS: MetodoRowConfig[] = [
+    { label: 'Fila 47', tamanoKey: 'metodo_b_tamano_1', masaKey: 'metodo_b_masa_1', legibilidadKey: 'metodo_b_legibilidad_1' },
+    { label: 'Fila 48', tamanoKey: 'metodo_b_tamano_2', masaKey: 'metodo_b_masa_2', legibilidadKey: 'metodo_b_legibilidad_2' },
+    { label: 'Fila 49', tamanoKey: 'metodo_b_tamano_3', masaKey: 'metodo_b_masa_3', legibilidadKey: 'metodo_b_legibilidad_3' },
+]
 
 export default function HumedadForm() {
     const [form, setForm] = useState<HumedadPayload>({ ...INITIAL_STATE })
@@ -205,6 +249,24 @@ export default function HumedadForm() {
                                       onChange={v => set('metodo_a', v)} />
                             <Checkbox label="Método B" checked={form.metodo_b}
                                       onChange={v => set('metodo_b', v)} />
+                        </div>
+                    </Section>
+
+                    {/* Método A / Método B - Datos de tabla */}
+                    <Section title="Método A / Método B — Casillas de Datos">
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            <MetodoGrid
+                                title="Método A (Filas 43-45)"
+                                rows={METHOD_A_ROWS}
+                                form={form}
+                                onChange={(key, value) => set(key, value)}
+                            />
+                            <MetodoGrid
+                                title="Método B (Filas 47-49)"
+                                rows={METHOD_B_ROWS}
+                                form={form}
+                                onChange={(key, value) => set(key, value)}
+                            />
                         </div>
                     </Section>
 
@@ -417,6 +479,63 @@ function ComputedField({ label, value, highlight }: {
                     : 'border-input bg-muted/30 text-foreground'
                 }`}>
                 {value != null ? value : '—'}
+            </div>
+        </div>
+    )
+}
+
+function MetodoGrid({
+    title,
+    rows,
+    form,
+    onChange,
+}: {
+    title: string
+    rows: MetodoRowConfig[]
+    form: HumedadPayload
+    onChange: (key: MetodoStringKey, value: string) => void
+}) {
+    return (
+        <div className="border border-border rounded-lg overflow-hidden">
+            <div className="px-3 py-2 bg-muted/40 border-b border-border">
+                <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+            </div>
+            <div className="p-3 space-y-2">
+                <div className="grid grid-cols-12 gap-2 text-[11px] font-semibold text-muted-foreground px-1">
+                    <div className="col-span-2">Fila</div>
+                    <div className="col-span-4">Tamaño partícula</div>
+                    <div className="col-span-3">Masa mínima</div>
+                    <div className="col-span-3">Legibilidad</div>
+                </div>
+                {rows.map((row) => (
+                    <div key={row.label} className="grid grid-cols-12 gap-2 items-center">
+                        <div className="col-span-2 text-xs text-muted-foreground">{row.label}</div>
+                        <input
+                            type="text"
+                            value={(form[row.tamanoKey] as string) || ''}
+                            onChange={(e) => onChange(row.tamanoKey, e.target.value)}
+                            autoComplete="off"
+                            data-lpignore="true"
+                            className="col-span-4 h-9 px-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                        <input
+                            type="text"
+                            value={(form[row.masaKey] as string) || ''}
+                            onChange={(e) => onChange(row.masaKey, e.target.value)}
+                            autoComplete="off"
+                            data-lpignore="true"
+                            className="col-span-3 h-9 px-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                        <input
+                            type="text"
+                            value={(form[row.legibilidadKey] as string) || ''}
+                            onChange={(e) => onChange(row.legibilidadKey, e.target.value)}
+                            autoComplete="off"
+                            data-lpignore="true"
+                            className="col-span-3 h-9 px-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                    </div>
+                ))}
             </div>
         </div>
     )
