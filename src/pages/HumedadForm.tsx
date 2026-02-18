@@ -89,6 +89,13 @@ const EQUIPO_OPTIONS: Record<EquipoKey, string[]> = {
     equipo_horno: ['-', 'EQP-0049'],
 }
 
+const CONDICIONES_INCAL_TEXTS = [
+    'La muestra de ensayo tiene una masa menor que la minima requerida por la norma. (Si/No)',
+    'La muestra de ensayo presenta mas de un tipo de material (capas, etc.). (Si/No)',
+    'La temperatura de secado es diferente a 110 ± 5°C. (Si/No)',
+    'Se excluyo algun material (tamano y cantidad) de la muestra de prueba. (Si/No)',
+]
+
 export default function HumedadForm() {
     const [form, setForm] = useState<HumedadPayload>({ ...INITIAL_STATE })
     const [loading, setLoading] = useState(false)
@@ -239,6 +246,21 @@ export default function HumedadForm() {
                                 </div>
                             ))}
                         </div>
+                        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50/50 p-3">
+                            <p className="text-xs font-semibold text-amber-800 mb-2">
+                                Condiciones del ensayo (obligatorio segun INCAL)
+                            </p>
+                            <div className="space-y-1">
+                                {CONDICIONES_INCAL_TEXTS.map((text) => (
+                                    <p key={text} className="text-xs text-amber-900">
+                                        - {text}
+                                    </p>
+                                ))}
+                                <p className="text-xs text-amber-900 pt-1">
+                                    Descripcion material excluido: .............................................................
+                                </p>
+                            </div>
+                        </div>
                     </Section>
 
                     {/* Descripción de la muestra + Método */}
@@ -253,9 +275,11 @@ export default function HumedadForm() {
                         </div>
                         <div className="flex items-center gap-6 mt-3">
                             <Checkbox label="Método A" checked={form.metodo_a}
-                                      onChange={v => set('metodo_a', v)} />
+                                      onChange={v => set('metodo_a', v)}
+                                      disabled />
                             <Checkbox label="Método B" checked={form.metodo_b}
-                                      onChange={v => set('metodo_b', v)} />
+                                      onChange={v => set('metodo_b', v)}
+                                      disabled />
                         </div>
                     </Section>
 
@@ -266,13 +290,11 @@ export default function HumedadForm() {
                                 title="Método A (Filas 43-45)"
                                 rows={METHOD_A_ROWS}
                                 form={form}
-                                onChange={(key, value) => set(key, value)}
                             />
                             <MetodoGrid
                                 title="Método B (Filas 47-49)"
                                 rows={METHOD_B_ROWS}
                                 form={form}
-                                onChange={(key, value) => set(key, value)}
                             />
                         </div>
                     </Section>
@@ -466,17 +488,19 @@ function NumInput({ label, value, onChange }: {
     )
 }
 
-function Checkbox({ label, checked, onChange }: {
+function Checkbox({ label, checked, onChange, disabled = false }: {
     label: string
     checked: boolean
     onChange: (v: boolean) => void
+    disabled?: boolean
 }) {
     return (
-        <label className="flex items-center gap-2 cursor-pointer select-none">
+        <label className={`flex items-center gap-2 select-none ${disabled ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}>
             <input
                 type="checkbox"
                 checked={checked}
                 onChange={e => onChange(e.target.checked)}
+                disabled={disabled}
                 className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
             />
             <span className="text-sm text-foreground">{label}</span>
@@ -531,12 +555,10 @@ function MetodoGrid({
     title,
     rows,
     form,
-    onChange,
 }: {
     title: string
     rows: MetodoRowConfig[]
     form: HumedadPayload
-    onChange: (key: MetodoStringKey, value: string) => void
 }) {
     return (
         <div className="border border-border rounded-lg overflow-hidden">
@@ -553,30 +575,15 @@ function MetodoGrid({
                 {rows.map((row) => (
                     <div key={row.label} className="grid grid-cols-12 gap-2 items-center">
                         <div className="col-span-2 text-xs text-muted-foreground">{row.label}</div>
-                        <input
-                            type="text"
-                            value={(form[row.tamanoKey] as string) || ''}
-                            onChange={(e) => onChange(row.tamanoKey, e.target.value)}
-                            autoComplete="off"
-                            data-lpignore="true"
-                            className="col-span-4 h-9 px-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
-                        <input
-                            type="text"
-                            value={(form[row.masaKey] as string) || ''}
-                            onChange={(e) => onChange(row.masaKey, e.target.value)}
-                            autoComplete="off"
-                            data-lpignore="true"
-                            className="col-span-3 h-9 px-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
-                        <input
-                            type="text"
-                            value={(form[row.legibilidadKey] as string) || ''}
-                            onChange={(e) => onChange(row.legibilidadKey, e.target.value)}
-                            autoComplete="off"
-                            data-lpignore="true"
-                            className="col-span-3 h-9 px-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
+                        <div className="col-span-4 h-9 px-2 rounded-md border border-input bg-muted/40 text-sm flex items-center text-foreground">
+                            {(form[row.tamanoKey] as string) || '-'}
+                        </div>
+                        <div className="col-span-3 h-9 px-2 rounded-md border border-input bg-muted/40 text-sm flex items-center text-foreground">
+                            {(form[row.masaKey] as string) || '-'}
+                        </div>
+                        <div className="col-span-3 h-9 px-2 rounded-md border border-input bg-muted/40 text-sm flex items-center text-foreground">
+                            {(form[row.legibilidadKey] as string) || '-'}
+                        </div>
                     </div>
                 ))}
             </div>
