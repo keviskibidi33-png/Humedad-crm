@@ -16,6 +16,17 @@ api.interceptors.request.use((config) => {
     return config
 })
 
+// Handle auth errors consistently with other CRM modules
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            window.dispatchEvent(new CustomEvent('session-expired'))
+        }
+        return Promise.reject(error)
+    },
+)
+
 export async function generateHumedadExcel(payload: HumedadPayload): Promise<Blob> {
     const { data } = await api.post('/api/humedad/excel', payload, {
         responseType: 'blob',
