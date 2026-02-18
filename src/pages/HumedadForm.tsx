@@ -5,11 +5,83 @@ import TMCalculator from '@/components/TMCalculator'
 import { generateHumedadExcel } from '@/services/api'
 import type { HumedadPayload } from '@/types'
 
+const getCurrentYearShort = () => new Date().getFullYear().toString().slice(-2)
+
+const formatTodayShortDate = () => {
+    const now = new Date()
+    const day = String(now.getDate()).padStart(2, '0')
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    return `${day}/${month}/${getCurrentYearShort()}`
+}
+
+const normalizeMuestraCode = (raw: string): string => {
+    const value = raw.trim().toUpperCase()
+    if (!value) return ''
+
+    const compact = value.replace(/\s+/g, '')
+    const year = getCurrentYearShort()
+    const match = compact.match(/^(\d+)(?:-SU)?(?:-(\d{2}))?$/)
+    if (match) {
+        return `${match[1]}-SU-${match[2] || year}`
+    }
+    return value
+}
+
+const normalizeNumeroOtCode = (raw: string): string => {
+    const value = raw.trim().toUpperCase()
+    if (!value) return ''
+
+    const compact = value.replace(/\s+/g, '')
+    const year = getCurrentYearShort()
+    const patterns = [
+        /^(?:N?OT-)?(\d+)(?:-(\d{2}))?$/,
+        /^(\d+)(?:-(?:N?OT))?(?:-(\d{2}))?$/,
+    ]
+
+    for (const pattern of patterns) {
+        const match = compact.match(pattern)
+        if (match) {
+            return `${match[1]}-${match[2] || year}`
+        }
+    }
+
+    return value
+}
+
+const normalizeFlexibleDate = (raw: string): string => {
+    const value = raw.trim()
+    if (!value) return ''
+
+    const digits = value.replace(/\D/g, '')
+    const year = getCurrentYearShort()
+    const pad2 = (part: string) => part.padStart(2, '0').slice(-2)
+    const build = (d: string, m: string, y: string = year) => `${pad2(d)}/${pad2(m)}/${pad2(y)}`
+
+    if (value.includes('/')) {
+        const [d = '', m = '', yRaw = ''] = value.split('/').map(part => part.trim())
+        if (!d || !m) return value
+        let yy = yRaw.replace(/\D/g, '')
+        if (yy.length === 4) yy = yy.slice(-2)
+        if (yy.length === 1) yy = `0${yy}`
+        if (!yy) yy = year
+        return build(d, m, yy)
+    }
+
+    if (digits.length === 2) return build(digits[0], digits[1])
+    if (digits.length === 3) return build(digits[0], digits.slice(1, 3))
+    if (digits.length === 4) return build(digits.slice(0, 2), digits.slice(2, 4))
+    if (digits.length === 5) return build(digits[0], digits.slice(1, 3), digits.slice(3, 5))
+    if (digits.length === 6) return build(digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 6))
+    if (digits.length >= 8) return build(digits.slice(0, 2), digits.slice(2, 4), digits.slice(6, 8))
+
+    return value
+}
+
 // ── Initial form state ───────────────────────────────────────────────────────
 const INITIAL_STATE: HumedadPayload = {
     muestra: '',
     numero_ot: '',
-    fecha_ensayo: new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    fecha_ensayo: formatTodayShortDate(),
     realizado_por: '',
     condicion_masa_menor: '-',
     condicion_capas: '-',
@@ -65,22 +137,21 @@ type MetodoStringKey =
 type EquipoKey = 'equipo_balanza_01' | 'equipo_balanza_001' | 'equipo_horno'
 
 interface MetodoRowConfig {
-    label: string
     tamanoKey: MetodoStringKey
     masaKey: MetodoStringKey
     legibilidadKey: MetodoStringKey
 }
 
 const METHOD_A_ROWS: MetodoRowConfig[] = [
-    { label: 'Fila 43', tamanoKey: 'metodo_a_tamano_1', masaKey: 'metodo_a_masa_1', legibilidadKey: 'metodo_a_legibilidad_1' },
-    { label: 'Fila 44', tamanoKey: 'metodo_a_tamano_2', masaKey: 'metodo_a_masa_2', legibilidadKey: 'metodo_a_legibilidad_2' },
-    { label: 'Fila 45', tamanoKey: 'metodo_a_tamano_3', masaKey: 'metodo_a_masa_3', legibilidadKey: 'metodo_a_legibilidad_3' },
+    { tamanoKey: 'metodo_a_tamano_1', masaKey: 'metodo_a_masa_1', legibilidadKey: 'metodo_a_legibilidad_1' },
+    { tamanoKey: 'metodo_a_tamano_2', masaKey: 'metodo_a_masa_2', legibilidadKey: 'metodo_a_legibilidad_2' },
+    { tamanoKey: 'metodo_a_tamano_3', masaKey: 'metodo_a_masa_3', legibilidadKey: 'metodo_a_legibilidad_3' },
 ]
 
 const METHOD_B_ROWS: MetodoRowConfig[] = [
-    { label: 'Fila 47', tamanoKey: 'metodo_b_tamano_1', masaKey: 'metodo_b_masa_1', legibilidadKey: 'metodo_b_legibilidad_1' },
-    { label: 'Fila 48', tamanoKey: 'metodo_b_tamano_2', masaKey: 'metodo_b_masa_2', legibilidadKey: 'metodo_b_legibilidad_2' },
-    { label: 'Fila 49', tamanoKey: 'metodo_b_tamano_3', masaKey: 'metodo_b_masa_3', legibilidadKey: 'metodo_b_legibilidad_3' },
+    { tamanoKey: 'metodo_b_tamano_1', masaKey: 'metodo_b_masa_1', legibilidadKey: 'metodo_b_legibilidad_1' },
+    { tamanoKey: 'metodo_b_tamano_2', masaKey: 'metodo_b_masa_2', legibilidadKey: 'metodo_b_legibilidad_2' },
+    { tamanoKey: 'metodo_b_tamano_3', masaKey: 'metodo_b_masa_3', legibilidadKey: 'metodo_b_legibilidad_3' },
 ]
 
 const EQUIPO_OPTIONS: Record<EquipoKey, string[]> = {
@@ -108,6 +179,18 @@ export default function HumedadForm() {
     const setNum = useCallback((key: keyof HumedadPayload, raw: string) => {
         const val = raw === '' ? undefined : parseFloat(raw)
         setForm(prev => ({ ...prev, [key]: val }))
+    }, [])
+
+    const applyFormattedField = useCallback((
+        key: 'muestra' | 'numero_ot' | 'fecha_ensayo' | 'revisado_fecha' | 'aprobado_fecha',
+        formatter: (raw: string) => string,
+    ) => {
+        setForm(prev => {
+            const current = String(prev[key] ?? '')
+            const formatted = formatter(current)
+            if (formatted === current) return prev
+            return { ...prev, [key]: formatted }
+        })
     }, [])
 
     // ── Computed formulas ─────────────────────────────────────────────
@@ -210,11 +293,17 @@ export default function HumedadForm() {
                     <Section title="Encabezado" icon={<FlaskConical className="h-4 w-4" />}>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <Input label="Muestra *" value={form.muestra}
-                                   onChange={v => set('muestra', v)} />
+                                   onChange={v => set('muestra', v)}
+                                   onBlur={() => applyFormattedField('muestra', normalizeMuestraCode)}
+                                   placeholder="XXX-SU-26" />
                             <Input label="N° OT *" value={form.numero_ot}
-                                   onChange={v => set('numero_ot', v)} />
+                                   onChange={v => set('numero_ot', v)}
+                                   onBlur={() => applyFormattedField('numero_ot', normalizeNumeroOtCode)}
+                                   placeholder="XXX-26" />
                             <Input label="Fecha Ensayo" value={form.fecha_ensayo}
-                                   onChange={v => set('fecha_ensayo', v)} />
+                                   onChange={v => set('fecha_ensayo', v)}
+                                   onBlur={() => applyFormattedField('fecha_ensayo', normalizeFlexibleDate)}
+                                   placeholder="DD/MM/AA" />
                             <Input label="Realizado por *" value={form.realizado_por}
                                    onChange={v => set('realizado_por', v)} />
                         </div>
@@ -275,11 +364,9 @@ export default function HumedadForm() {
                         </div>
                         <div className="flex items-center gap-6 mt-3">
                             <Checkbox label="Método A" checked={form.metodo_a}
-                                      onChange={v => set('metodo_a', v)}
-                                      disabled />
+                                      onChange={v => set('metodo_a', v)} />
                             <Checkbox label="Método B" checked={form.metodo_b}
-                                      onChange={v => set('metodo_b', v)}
-                                      disabled />
+                                      onChange={v => set('metodo_b', v)} />
                         </div>
                     </Section>
 
@@ -287,12 +374,12 @@ export default function HumedadForm() {
                     <Section title="Método A / Método B — Casillas de Datos">
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                             <MetodoGrid
-                                title="Método A (Filas 43-45)"
+                                title="Método A"
                                 rows={METHOD_A_ROWS}
                                 form={form}
                             />
                             <MetodoGrid
-                                title="Método B (Filas 47-49)"
+                                title="Método B"
                                 rows={METHOD_B_ROWS}
                                 form={form}
                             />
@@ -301,32 +388,91 @@ export default function HumedadForm() {
 
                     {/* Datos de ensayo */}
                     <Section title="Datos del Ensayo">
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            <NumInput label="N° Ensayo" value={form.numero_ensayo}
-                                      onChange={v => setNum('numero_ensayo', v)} />
-                            <Input label="Recipiente N°" value={form.recipiente_numero || ''}
-                                   onChange={v => set('recipiente_numero', v)} />
-                            <NumInput label="Masa recip. + muestra húmeda (g)"
-                                      value={form.masa_recipiente_muestra_humeda}
-                                      onChange={v => setNum('masa_recipiente_muestra_humeda', v)} />
-                            <NumInput label="Masa recip. + muestra seca horno (g)"
-                                      value={form.masa_recipiente_muestra_seca}
-                                      onChange={v => setNum('masa_recipiente_muestra_seca', v)} />
-                            <NumInput label="Masa recip. + muestra seca constante (g)"
-                                      value={form.masa_recipiente_muestra_seca_constante}
-                                      onChange={v => setNum('masa_recipiente_muestra_seca_constante', v)} />
-                            <NumInput label="Masa del recipiente (g)"
-                                      value={form.masa_recipiente}
-                                      onChange={v => setNum('masa_recipiente', v)} />
-                        </div>
-
-                        {/* Computed results */}
-                        <div className="grid grid-cols-3 gap-3 mt-3 p-3 bg-muted/30 rounded-lg border border-dashed border-border">
-                            <ComputedField label="Masa del agua (g)" value={masaAgua} />
-                            <ComputedField label="Masa muestra seca (g)" value={masaMuestraSeca} />
-                            <ComputedField label="Contenido de humedad (%)"
-                                           value={contenidoHumedad}
-                                           highlight />
+                        <div className="overflow-x-auto rounded-md border border-border">
+                            <table className="w-full min-w-[720px] text-sm">
+                                <thead className="bg-muted/40">
+                                    <tr className="text-xs font-semibold text-muted-foreground">
+                                        <th className="w-10 px-2 py-2 border-b border-r border-border text-center">#</th>
+                                        <th className="px-3 py-2 border-b border-r border-border text-left">DESCRIPCIÓN</th>
+                                        <th className="w-24 px-2 py-2 border-b border-r border-border text-center">UND</th>
+                                        <th className="w-72 px-3 py-2 border-b border-border text-left">ENSAYO</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">1</td>
+                                        <td className="px-3 py-2 border-b border-r border-border">N° de ensayo</td>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">N°</td>
+                                        <td className="px-3 py-2 border-b border-border">
+                                            <TableNumInput value={form.numero_ensayo} onChange={v => setNum('numero_ensayo', v)} />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">2</td>
+                                        <td className="px-3 py-2 border-b border-r border-border">Recipiente N°</td>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">N°</td>
+                                        <td className="px-3 py-2 border-b border-border">
+                                            <TableTextInput value={form.recipiente_numero || ''} onChange={v => set('recipiente_numero', v)} />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">3</td>
+                                        <td className="px-3 py-2 border-b border-r border-border">Masa del recipiente y muestra húmeda</td>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">g</td>
+                                        <td className="px-3 py-2 border-b border-border">
+                                            <TableNumInput value={form.masa_recipiente_muestra_humeda} onChange={v => setNum('masa_recipiente_muestra_humeda', v)} />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">4</td>
+                                        <td className="px-3 py-2 border-b border-r border-border">Masa del recipiente y muestra seca al horno</td>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">g</td>
+                                        <td className="px-3 py-2 border-b border-border">
+                                            <TableNumInput value={form.masa_recipiente_muestra_seca} onChange={v => setNum('masa_recipiente_muestra_seca', v)} />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">5</td>
+                                        <td className="px-3 py-2 border-b border-r border-border">Masa del recipiente y muestra seca al horno constante</td>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">g</td>
+                                        <td className="px-3 py-2 border-b border-border">
+                                            <TableNumInput value={form.masa_recipiente_muestra_seca_constante} onChange={v => setNum('masa_recipiente_muestra_seca_constante', v)} />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">6</td>
+                                        <td className="px-3 py-2 border-b border-r border-border">Masa del recipiente</td>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">g</td>
+                                        <td className="px-3 py-2 border-b border-border">
+                                            <TableNumInput value={form.masa_recipiente} onChange={v => setNum('masa_recipiente', v)} />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">7</td>
+                                        <td className="px-3 py-2 border-b border-r border-border">Masa del agua (5-3)</td>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">g</td>
+                                        <td className="px-3 py-2 border-b border-border">
+                                            <TableComputedValue value={masaAgua} />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">8</td>
+                                        <td className="px-3 py-2 border-b border-r border-border">Masa de muestra seca al horno (5-6)</td>
+                                        <td className="px-2 py-2 border-b border-r border-border text-center">g</td>
+                                        <td className="px-3 py-2 border-b border-border">
+                                            <TableComputedValue value={masaMuestraSeca} />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-2 py-2 border-r border-border text-center">9</td>
+                                        <td className="px-3 py-2 border-r border-border">CONTENIDO DE AGUA (HUMEDAD) * (7/8*100)</td>
+                                        <td className="px-2 py-2 border-r border-border text-center">%</td>
+                                        <td className="px-3 py-2">
+                                            <TableComputedValue value={contenidoHumedad} highlight />
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </Section>
 
@@ -373,12 +519,14 @@ export default function HumedadForm() {
                                    onChange={v => set('revisado_por', v)} />
                             <Input label="Fecha revisión" value={form.revisado_fecha || ''}
                                    onChange={v => set('revisado_fecha', v)}
-                                   placeholder="DD/MM/YYYY" />
+                                   onBlur={() => applyFormattedField('revisado_fecha', normalizeFlexibleDate)}
+                                   placeholder="DD/MM/AA" />
                             <Input label="Aprobado por" value={form.aprobado_por || ''}
                                    onChange={v => set('aprobado_por', v)} />
                             <Input label="Fecha aprobación" value={form.aprobado_fecha || ''}
                                    onChange={v => set('aprobado_fecha', v)}
-                                   placeholder="DD/MM/YYYY" />
+                                   onBlur={() => applyFormattedField('aprobado_fecha', normalizeFlexibleDate)}
+                                   placeholder="DD/MM/AA" />
                         </div>
                     </Section>
 
@@ -443,11 +591,12 @@ function Section({ title, icon, children }: {
     )
 }
 
-function Input({ label, value, onChange, placeholder }: {
+function Input({ label, value, onChange, placeholder, onBlur }: {
     label: string
     value: string
     onChange: (v: string) => void
     placeholder?: string
+    onBlur?: () => void
 }) {
     return (
         <div>
@@ -456,6 +605,7 @@ function Input({ label, value, onChange, placeholder }: {
                 type="text"
                 value={value}
                 onChange={e => onChange(e.target.value)}
+                onBlur={onBlur}
                 placeholder={placeholder}
                 autoComplete="off"
                 data-lpignore="true"
@@ -508,21 +658,52 @@ function Checkbox({ label, checked, onChange, disabled = false }: {
     )
 }
 
-function ComputedField({ label, value, highlight }: {
-    label: string
+function TableTextInput({ value, onChange }: {
+    value: string
+    onChange: (raw: string) => void
+}) {
+    return (
+        <input
+            type="text"
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            autoComplete="off"
+            data-lpignore="true"
+            className="w-full h-8 px-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+    )
+}
+
+function TableNumInput({ value, onChange }: {
+    value: number | undefined | null
+    onChange: (raw: string) => void
+}) {
+    return (
+        <input
+            type="number"
+            step="any"
+            value={value ?? ''}
+            onChange={e => onChange(e.target.value)}
+            autoComplete="off"
+            data-lpignore="true"
+            className="w-full h-8 px-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+    )
+}
+
+function TableComputedValue({ value, highlight }: {
     value: number | null
     highlight?: boolean
 }) {
     return (
-        <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
-            <div className={`h-9 px-3 rounded-md border flex items-center text-sm font-medium
-                ${highlight && value != null
-                    ? 'border-primary bg-primary/5 text-primary'
+        <div
+            className={`h-8 px-2 rounded-md border text-sm flex items-center ${
+                highlight && value != null
+                    ? 'border-primary bg-primary/5 text-primary font-semibold'
                     : 'border-input bg-muted/30 text-foreground'
-                }`}>
-                {value != null ? value : '—'}
-            </div>
+            }`}
+        >
+            {value != null ? value : '—'}
         </div>
     )
 }
@@ -567,21 +748,19 @@ function MetodoGrid({
             </div>
             <div className="p-3 space-y-2">
                 <div className="grid grid-cols-12 gap-2 text-[11px] font-semibold text-muted-foreground px-1">
-                    <div className="col-span-2">Fila</div>
                     <div className="col-span-4">Tamaño partícula</div>
-                    <div className="col-span-3">Masa mínima</div>
-                    <div className="col-span-3">Legibilidad</div>
+                    <div className="col-span-4">Masa mínima</div>
+                    <div className="col-span-4">Legibilidad</div>
                 </div>
                 {rows.map((row) => (
-                    <div key={row.label} className="grid grid-cols-12 gap-2 items-center">
-                        <div className="col-span-2 text-xs text-muted-foreground">{row.label}</div>
+                    <div key={row.tamanoKey} className="grid grid-cols-12 gap-2 items-center">
                         <div className="col-span-4 h-9 px-2 rounded-md border border-input bg-muted/40 text-sm flex items-center text-foreground">
                             {(form[row.tamanoKey] as string) || '-'}
                         </div>
-                        <div className="col-span-3 h-9 px-2 rounded-md border border-input bg-muted/40 text-sm flex items-center text-foreground">
+                        <div className="col-span-4 h-9 px-2 rounded-md border border-input bg-muted/40 text-sm flex items-center text-foreground">
                             {(form[row.masaKey] as string) || '-'}
                         </div>
-                        <div className="col-span-3 h-9 px-2 rounded-md border border-input bg-muted/40 text-sm flex items-center text-foreground">
+                        <div className="col-span-4 h-9 px-2 rounded-md border border-input bg-muted/40 text-sm flex items-center text-foreground">
                             {(form[row.legibilidadKey] as string) || '-'}
                         </div>
                     </div>
