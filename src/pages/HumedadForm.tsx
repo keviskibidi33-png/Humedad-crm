@@ -44,9 +44,9 @@ const INITIAL_STATE: HumedadPayload = {
     masa_recipiente_muestra_seca: undefined,
     masa_recipiente_muestra_seca_constante: undefined,
     masa_recipiente: undefined,
-    equipo_balanza_01: 'EQP-0046',
-    equipo_balanza_001: 'EQP-0045',
-    equipo_horno: 'EQP-0049',
+    equipo_balanza_01: '-',
+    equipo_balanza_001: '-',
+    equipo_horno: '-',
     observaciones: '',
     revisado_por: '',
     revisado_fecha: '',
@@ -62,6 +62,7 @@ type MetodoStringKey =
     | 'metodo_b_tamano_1' | 'metodo_b_tamano_2' | 'metodo_b_tamano_3'
     | 'metodo_b_masa_1' | 'metodo_b_masa_2' | 'metodo_b_masa_3'
     | 'metodo_b_legibilidad_1' | 'metodo_b_legibilidad_2' | 'metodo_b_legibilidad_3'
+type EquipoKey = 'equipo_balanza_01' | 'equipo_balanza_001' | 'equipo_horno'
 
 interface MetodoRowConfig {
     label: string
@@ -81,6 +82,12 @@ const METHOD_B_ROWS: MetodoRowConfig[] = [
     { label: 'Fila 48', tamanoKey: 'metodo_b_tamano_2', masaKey: 'metodo_b_masa_2', legibilidadKey: 'metodo_b_legibilidad_2' },
     { label: 'Fila 49', tamanoKey: 'metodo_b_tamano_3', masaKey: 'metodo_b_masa_3', legibilidadKey: 'metodo_b_legibilidad_3' },
 ]
+
+const EQUIPO_OPTIONS: Record<EquipoKey, string[]> = {
+    equipo_balanza_01: ['-', 'EQP-0046'],
+    equipo_balanza_001: ['-', 'EQP-0045'],
+    equipo_horno: ['-', 'EQP-0049'],
+}
 
 export default function HumedadForm() {
     const [form, setForm] = useState<HumedadPayload>({ ...INITIAL_STATE })
@@ -304,12 +311,24 @@ export default function HumedadForm() {
                     {/* Equipo */}
                     <Section title="Equipo Utilizado">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <Input label="Balanza 0.1 g" value={form.equipo_balanza_01 || ''}
-                                   onChange={v => set('equipo_balanza_01', v)} />
-                            <Input label="Balanza 0.01 g" value={form.equipo_balanza_001 || ''}
-                                   onChange={v => set('equipo_balanza_001', v)} />
-                            <Input label="Horno 110°C" value={form.equipo_horno || ''}
-                                   onChange={v => set('equipo_horno', v)} />
+                            <EquipmentSelect
+                                label="Balanza 0.1 g"
+                                value={form.equipo_balanza_01 || '-'}
+                                options={EQUIPO_OPTIONS.equipo_balanza_01}
+                                onChange={v => set('equipo_balanza_01', v)}
+                            />
+                            <EquipmentSelect
+                                label="Balanza 0.01 g"
+                                value={form.equipo_balanza_001 || '-'}
+                                options={EQUIPO_OPTIONS.equipo_balanza_001}
+                                onChange={v => set('equipo_balanza_001', v)}
+                            />
+                            <EquipmentSelect
+                                label="Horno 110°C"
+                                value={form.equipo_horno || '-'}
+                                options={EQUIPO_OPTIONS.equipo_horno}
+                                onChange={v => set('equipo_horno', v)}
+                            />
                         </div>
                     </Section>
 
@@ -480,6 +499,30 @@ function ComputedField({ label, value, highlight }: {
                 }`}>
                 {value != null ? value : '—'}
             </div>
+        </div>
+    )
+}
+
+function EquipmentSelect({ label, value, onChange, options }: {
+    label: string
+    value: string
+    onChange: (v: string) => void
+    options: string[]
+}) {
+    return (
+        <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+            <select
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+                {options.map((opt) => (
+                    <option key={opt} value={opt}>
+                        {opt}
+                    </option>
+                ))}
+            </select>
         </div>
     )
 }
