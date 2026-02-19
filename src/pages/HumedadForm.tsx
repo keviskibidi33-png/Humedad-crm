@@ -1,14 +1,13 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import toast from 'react-hot-toast'
-import { ChevronDown, Download, Eye, Loader2, Droplets, FlaskConical, Pencil } from 'lucide-react'
+import { ChevronDown, Download, Loader2, Droplets, FlaskConical } from 'lucide-react'
 import TMCalculator from '@/components/TMCalculator'
 import {
     getHumedadEnsayoDetail,
-    listHumedadEnsayos,
     saveAndDownloadHumedadExcel,
     saveHumedadEnsayo,
 } from '@/services/api'
-import type { HumedadEnsayoDetail, HumedadEnsayoSummary, HumedadPayload } from '@/types'
+import type { HumedadPayload, HumedadEnsayoDetail } from '@/types'
 
 const getCurrentYearShort = () => new Date().getFullYear().toString().slice(-2)
 
@@ -173,22 +172,18 @@ const CONDICIONES_INCAL_TEXTS = [
     'Se excluyo algun material (tamano y cantidad) de la muestra de prueba. (Si/No)',
 ]
 
-const formatHistoryDate = (value?: string | null) => {
-    if (!value) return '—'
-    const parsed = new Date(value)
-    if (!Number.isNaN(parsed.getTime())) {
-        return parsed.toLocaleString('es-PE')
-    }
-    return value
+const getEnsayoIdFromQuery = (): number | null => {
+    const raw = new URLSearchParams(window.location.search).get('ensayo_id')
+    if (!raw) return null
+    const parsed = Number(raw)
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null
 }
 
 export default function HumedadForm() {
     const [form, setForm] = useState<HumedadPayload>({ ...INITIAL_STATE })
     const [loading, setLoading] = useState(false)
-    const [historyLoading, setHistoryLoading] = useState(false)
-    const [history, setHistory] = useState<HumedadEnsayoSummary[]>([])
-    const [selectedDetail, setSelectedDetail] = useState<HumedadEnsayoDetail | null>(null)
-    const [editingEnsayoId, setEditingEnsayoId] = useState<number | null>(null)
+    const [editingEnsayoId, setEditingEnsayoId] = useState<number | null>(() => getEnsayoIdFromQuery())
+    const [loadingEnsayo, setLoadingEnsayo] = useState(false)
 
     // ── Helpers ───────────────────────────────────────────────────────
     const set = useCallback(<K extends keyof HumedadPayload>(key: K, value: HumedadPayload[K]) => {
@@ -250,22 +245,36 @@ export default function HumedadForm() {
         return payload
     }, [contenidoHumedad, form, masaAgua, masaMuestraSeca])
 
-    const refreshHistory = useCallback(async () => {
-        setHistoryLoading(true)
-        try {
-            const records = await listHumedadEnsayos(100)
-            setHistory(records)
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Error desconocido'
-            toast.error(`No se pudo cargar el historial: ${msg}`)
-        } finally {
-            setHistoryLoading(false)
-        }
-    }, [])
-
     useEffect(() => {
-        void refreshHistory()
-    }, [refreshHistory])
+        if (!editingEnsayoId) return
+
+        let cancelled = false
+        const loadForEdit = async () => {
+            setLoadingEnsayo(true)
+            try {
+                const detail: HumedadEnsayoDetail = await getHumedadEnsayoDetail(editingEnsayoId)
+                if (!detail.payload) {
+                    toast.error('El ensayo seleccionado no tiene payload guardado para edición.')
+                    return
+                }
+                if (!cancelled) {
+                    setForm({ ...INITIAL_STATE, ...detail.payload })
+                }
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : 'Error desconocido'
+                toast.error(`No se pudo cargar ensayo para edición: ${msg}`)
+            } finally {
+                if (!cancelled) {
+                    setLoadingEnsayo(false)
+                }
+            }
+        }
+
+        void loadForEdit()
+        return () => {
+            cancelled = true
+        }
+    }, [editingEnsayoId])
 
     const downloadBlob = useCallback((blob: Blob, numeroOt: string) => {
         const url = URL.createObjectURL(blob)
@@ -274,18 +283,6 @@ export default function HumedadForm() {
         a.download = `Humedad_${numeroOt}_${new Date().toISOString().slice(0, 10)}.xlsx`
         a.click()
         URL.revokeObjectURL(url)
-    }, [])
-
-    const loadFormFromDetail = useCallback((detail: HumedadEnsayoDetail) => {
-        if (!detail.payload) {
-            toast.error('Este registro no tiene payload guardado para edición.')
-            return false
-        }
-        setForm({ ...INITIAL_STATE, ...detail.payload })
-        setEditingEnsayoId(detail.id)
-        setSelectedDetail(detail)
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-        return true
     }, [])
 
     // ── TM callback ───────────────────────────────────────────────────
@@ -304,53 +301,21 @@ export default function HumedadForm() {
             const payload = buildPayload()
             if (withDownload) {
                 const { blob, ensayoId } = await saveAndDownloadHumedadExcel(payload, editingEnsayoId ?? undefined)
+                if (ensayoId) setEditingEnsayoId(ensayoId)
                 downloadBlob(blob, payload.numero_ot)
-                if (ensayoId) {
-                    setEditingEnsayoId(ensayoId)
-                }
                 toast.success(editingEnsayoId ? 'Formato actualizado y descargado.' : 'Formato guardado y descargado.')
             } else {
                 const saved = await saveHumedadEnsayo(payload, editingEnsayoId ?? undefined)
                 setEditingEnsayoId(saved.id)
                 toast.success(editingEnsayoId ? 'Formato actualizado correctamente.' : 'Formato guardado correctamente.')
             }
-            await refreshHistory()
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Error desconocido'
             toast.error(`Error guardando formato: ${msg}`)
         } finally {
             setLoading(false)
         }
-    }, [buildPayload, downloadBlob, editingEnsayoId, form.muestra, form.numero_ot, form.realizado_por, refreshHistory])
-
-    const handleViewDetail = useCallback(async (ensayoId: number) => {
-        try {
-            const detail = await getHumedadEnsayoDetail(ensayoId)
-            setSelectedDetail(detail)
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Error desconocido'
-            toast.error(`No se pudo cargar el detalle: ${msg}`)
-        }
-    }, [])
-
-    const handleEditEnsayo = useCallback(async (ensayoId: number) => {
-        try {
-            const detail = await getHumedadEnsayoDetail(ensayoId)
-            const loaded = loadFormFromDetail(detail)
-            if (loaded) {
-                toast.success(`Editando ensayo #${ensayoId}`)
-            }
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Error desconocido'
-            toast.error(`No se pudo cargar el ensayo para edición: ${msg}`)
-        }
-    }, [loadFormFromDetail])
-
-    const handleCancelEdit = useCallback(() => {
-        setEditingEnsayoId(null)
-        setForm({ ...INITIAL_STATE })
-        toast.success('Edición cancelada.')
-    }, [])
+    }, [buildPayload, downloadBlob, editingEnsayoId, form.muestra, form.numero_ot, form.realizado_por])
 
     // ── Render ────────────────────────────────────────────────────────
     return (
@@ -367,13 +332,20 @@ export default function HumedadForm() {
                     <p className="text-sm text-muted-foreground">
                         Generador de informe de laboratorio
                     </p>
-                    {editingEnsayoId !== null && (
+                    {editingEnsayoId && (
                         <p className="text-xs text-primary font-medium mt-1">
-                            Editando ensayo guardado #{editingEnsayoId}
+                            Editando ensayo #{editingEnsayoId}
                         </p>
                     )}
                 </div>
             </div>
+
+            {loadingEnsayo && (
+                <div className="mb-4 h-10 rounded-lg border border-border bg-muted/40 px-3 text-sm text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Cargando datos guardados para edición...
+                </div>
+            )}
 
             {/* ═══ SPLIT LAYOUT: Form | Calculator ═══ */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -617,7 +589,7 @@ export default function HumedadForm() {
                     </Section>
 
                     {/* Guardado / Descarga */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <button
                             onClick={() => void handleSave(false)}
                             disabled={loading}
@@ -642,74 +614,7 @@ export default function HumedadForm() {
                                 : <><Download className="h-4 w-4" /> Guardar y Descargar</>
                             }
                         </button>
-                        <button
-                            onClick={handleCancelEdit}
-                            disabled={loading || editingEnsayoId === null}
-                            className="h-11 rounded-lg border border-input bg-background text-foreground font-medium
-                                   hover:bg-muted/40 transition-colors disabled:opacity-50"
-                        >
-                            Cancelar edición
-                        </button>
                     </div>
-
-                    <Section title="Historial de Humedad">
-                        {historyLoading ? (
-                            <div className="h-20 flex items-center justify-center text-sm text-muted-foreground">
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                Cargando historial...
-                            </div>
-                        ) : history.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">Aún no hay ensayos guardados.</p>
-                        ) : (
-                            <div className="overflow-x-auto rounded-md border border-border">
-                                <table className="w-full min-w-[740px] text-sm">
-                                    <thead className="bg-muted/40">
-                                        <tr className="text-xs font-semibold text-muted-foreground">
-                                            <th className="px-3 py-2 border-b border-border text-left">ID</th>
-                                            <th className="px-3 py-2 border-b border-border text-left">N° OT</th>
-                                            <th className="px-3 py-2 border-b border-border text-left">Muestra</th>
-                                            <th className="px-3 py-2 border-b border-border text-left">Estado</th>
-                                            <th className="px-3 py-2 border-b border-border text-left">Humedad</th>
-                                            <th className="px-3 py-2 border-b border-border text-left">Última actualización</th>
-                                            <th className="px-3 py-2 border-b border-border text-left">Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {history.map((row) => (
-                                            <tr key={row.id} className="border-b border-border/70">
-                                                <td className="px-3 py-2">{row.id}</td>
-                                                <td className="px-3 py-2">{row.numero_ot}</td>
-                                                <td className="px-3 py-2">{row.muestra || '—'}</td>
-                                                <td className="px-3 py-2">{row.estado}</td>
-                                                <td className="px-3 py-2">
-                                                    {row.contenido_humedad != null ? `${row.contenido_humedad}%` : '—'}
-                                                </td>
-                                                <td className="px-3 py-2">{formatHistoryDate(row.fecha_actualizacion || row.fecha_creacion)}</td>
-                                                <td className="px-3 py-2">
-                                                    <div className="flex flex-wrap gap-2">
-                                                        <button
-                                                            onClick={() => void handleViewDetail(row.id)}
-                                                            className="h-8 px-3 rounded-md border border-input text-xs bg-background hover:bg-muted/50 inline-flex items-center gap-1"
-                                                        >
-                                                            <Eye className="h-3.5 w-3.5" />
-                                                            Ver detalle
-                                                        </button>
-                                                        <button
-                                                            onClick={() => void handleEditEnsayo(row.id)}
-                                                            className="h-8 px-3 rounded-md border border-input text-xs bg-background hover:bg-muted/50 inline-flex items-center gap-1"
-                                                        >
-                                                            <Pencil className="h-3.5 w-3.5" />
-                                                            Editar
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </Section>
                 </div>
 
                 {/* ── RIGHT: Calculator (1/3) ────────────────────── */}
@@ -734,30 +639,6 @@ export default function HumedadForm() {
                             </p>
                         </div>
 
-                        {selectedDetail && (
-                            <div className="mt-4 p-4 bg-card rounded-lg border border-border text-xs text-muted-foreground space-y-2">
-                                <p className="font-semibold text-foreground text-sm">
-                                    Detalle guardado #{selectedDetail.id}
-                                </p>
-                                <p><strong>N° Ensayo:</strong> {selectedDetail.numero_ensayo}</p>
-                                <p><strong>Estado:</strong> {selectedDetail.estado}</p>
-                                <p><strong>Fecha doc:</strong> {selectedDetail.fecha_documento || '—'}</p>
-                                <p><strong>Desc. material excluido:</strong> {selectedDetail.payload?.descripcion_material_excluido || '—'}</p>
-                                <p><strong>Observaciones:</strong> {selectedDetail.payload?.observaciones || '—'}</p>
-                                <button
-                                    onClick={() => {
-                                        const loaded = loadFormFromDetail(selectedDetail)
-                                        if (loaded) {
-                                            toast.success(`Datos cargados para edición (#${selectedDetail.id}).`)
-                                        }
-                                    }}
-                                    className="mt-2 h-8 px-3 rounded-md border border-input bg-background hover:bg-muted/50 text-xs inline-flex items-center gap-1"
-                                >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                    Cargar para editar
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>

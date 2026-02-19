@@ -34,6 +34,9 @@ api.interceptors.response.use(
 
 export async function generateHumedadExcel(payload: HumedadPayload): Promise<Blob> {
     const { data } = await api.post('/api/humedad/excel', payload, {
+        params: {
+            download: true,
+        },
         responseType: 'blob',
     })
     return data
