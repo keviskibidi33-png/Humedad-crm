@@ -371,8 +371,8 @@ export default function HumedadForm() {
                         <div className="space-y-2">
                             {([
                                 ['condicion_masa_menor', '- La muestra de ensayo tiene una masa menor que la minima requerida por la norma. (Si/No)'],
-                                ['condicion_capas', '- La muestra de ensayo tiene una masa menor que la minima requerida por la norma. (Si/No) '],
-                                ['condicion_temperatura', 'La temperatura de secado es diferente a 110 ± 5°C. (Si/No)'],
+                                ['condicion_capas', '- La muestra de ensayo presenta mas de un tipo de material (capas, etc.). (Si/No)'],
+                                ['condicion_temperatura', '- La temperatura de secado es diferente a 110 ± 5°C. (Si/No)'],
                                 ['condicion_excluido', '- Se excluyo algun material (tamano y cantidad) de la muestra de prueba. (Si/No)'],
                             ] as [CondicionKey, string][]).map(([key, label]) => (
                                 <SelectField
@@ -385,15 +385,19 @@ export default function HumedadForm() {
                                 />
                             ))}
                         </div>
-                        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50/50 p-3">
-                            <p className="text-xs font-semibold text-amber-800 mb-2">
-                                Condiciones del ensayo (obligatorio segun INCAL)
-                            </p>
-                            <Input
-                                label="Descripción material excluido"
+                        <div className="grid grid-cols-1 md:grid-cols-[minmax(220px,1fr)_280px] gap-2 md:gap-3 items-center pt-1">
+                            <label className="text-sm font-medium text-muted-foreground">
+                                Descripción material excluido
+                            </label>
+                            <input
+                                type="text"
                                 value={form.descripcion_material_excluido || ''}
-                                onChange={v => set('descripcion_material_excluido', v)}
+                                onChange={(e) => set('descripcion_material_excluido', e.target.value)}
                                 placeholder="Ej: Se excluyó grava > 3 in, aprox. 450 g"
+                                autoComplete="off"
+                                data-lpignore="true"
+                                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm
+                                           focus:outline-none focus:ring-2 focus:ring-ring"
                             />
                         </div>
                     </Section>
