@@ -375,7 +375,7 @@ export default function HumedadForm() {
 
                     {/* Condiciones del ensayo */}
                     <Section title="Condiciones del Ensayo">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="space-y-2">
                             {([
                                 ['condicion_masa_menor', '¿Masa menor?'],
                                 ['condicion_capas', '¿Más de un tipo (capas)?'],
@@ -387,6 +387,7 @@ export default function HumedadForm() {
                                     label={label}
                                     value={form[key]}
                                     options={['-', 'SI', 'NO']}
+                                    inline
                                     onChange={(value) => set(key, value as "-" | "SI" | "NO")}
                                 />
                             ))}
@@ -689,29 +690,47 @@ function Input({ label, value, onChange, placeholder, onBlur }: {
     )
 }
 
-function SelectField({ label, value, onChange, options }: {
+function SelectField({ label, value, onChange, options, inline = false }: {
     label: string
     value: string
     onChange: (v: string) => void
     options: string[]
+    inline?: boolean
 }) {
+    const selectElement = (
+        <>
+            <select
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="w-full h-9 pl-3 pr-8 rounded-md border border-input bg-background text-sm appearance-none
+                           focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+                {options.map((option) => (
+                    <option key={option} value={option}>
+                        {option}
+                    </option>
+                ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        </>
+    )
+
+    if (inline) {
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-[minmax(220px,1fr)_200px] gap-2 md:gap-3 items-center">
+                <label className="text-sm font-medium text-muted-foreground">{label}</label>
+                <div className="relative w-full md:max-w-[200px] md:justify-self-end">
+                    {selectElement}
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
             <div className="relative">
-                <select
-                    value={value}
-                    onChange={(e) => onChange(e.target.value)}
-                    className="w-full h-9 pl-3 pr-8 rounded-md border border-input bg-background text-sm appearance-none
-                           focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                    {options.map((option) => (
-                        <option key={option} value={option}>
-                            {option}
-                        </option>
-                    ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                {selectElement}
             </div>
         </div>
     )
