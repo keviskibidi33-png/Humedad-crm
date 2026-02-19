@@ -420,21 +420,6 @@ export default function HumedadForm() {
                         </div>
                     </Section>
 
-                    {/* Método A / Método B - Datos de tabla */}
-                    <Section title="Método A / Método B">
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                            <MetodoGrid
-                                title="Método A"
-                                rows={METHOD_A_ROWS}
-                                form={form}
-                            />
-                            <MetodoGrid
-                                title="Método B"
-                                rows={METHOD_B_ROWS}
-                                form={form}
-                            />
-                        </div>
-                    </Section>
                     {/* Datos de ensayo */}
                     <Section title="Datos del Ensayo">
                         <div className="overflow-x-auto rounded-md border border-border">
@@ -522,6 +507,22 @@ export default function HumedadForm() {
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </Section>
+
+                    {/* Método A / Método B - Datos de tabla */}
+                    <Section title="Método A / Método B">
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            <MetodoGrid
+                                title="Método A"
+                                rows={METHOD_A_ROWS}
+                                form={form}
+                            />
+                            <MetodoGrid
+                                title="Método B"
+                                rows={METHOD_B_ROWS}
+                                form={form}
+                            />
                         </div>
                     </Section>
 
