@@ -283,6 +283,12 @@ export default function HumedadForm() {
         set('tamano_maximo_particula', tm)
     }, [set])
 
+    const closeParentModalIfEmbedded = useCallback(() => {
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'CLOSE_MODAL' }, '*')
+        }
+    }, [])
+
     const handleSave = useCallback(async (withDownload: boolean) => {
         if (!form.muestra || !form.numero_ot || !form.realizado_por) {
             toast.error('Complete los campos obligatorios: Muestra, N° OT, Realizado por')
@@ -293,22 +299,23 @@ export default function HumedadForm() {
         try {
             const payload = buildPayload()
             if (withDownload) {
-                const { blob, ensayoId } = await saveAndDownloadHumedadExcel(payload, editingEnsayoId ?? undefined)
-                if (ensayoId) setEditingEnsayoId(ensayoId)
+                const { blob } = await saveAndDownloadHumedadExcel(payload, editingEnsayoId ?? undefined)
                 downloadBlob(blob, payload.numero_ot)
                 toast.success(editingEnsayoId ? 'Formato actualizado y descargado.' : 'Formato guardado y descargado.')
             } else {
-                const saved = await saveHumedadEnsayo(payload, editingEnsayoId ?? undefined)
-                setEditingEnsayoId(saved.id)
+                await saveHumedadEnsayo(payload, editingEnsayoId ?? undefined)
                 toast.success(editingEnsayoId ? 'Formato actualizado correctamente.' : 'Formato guardado correctamente.')
             }
+            setForm({ ...INITIAL_STATE })
+            setEditingEnsayoId(null)
+            closeParentModalIfEmbedded()
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Error desconocido'
             toast.error(`Error guardando formato: ${msg}`)
         } finally {
             setLoading(false)
         }
-    }, [buildPayload, downloadBlob, editingEnsayoId, form.muestra, form.numero_ot, form.realizado_por])
+    }, [buildPayload, closeParentModalIfEmbedded, downloadBlob, editingEnsayoId, form.muestra, form.numero_ot, form.realizado_por])
 
     // ── Render ────────────────────────────────────────────────────────
     return (
