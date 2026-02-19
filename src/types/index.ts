@@ -17,6 +17,7 @@ export interface HumedadPayload {
     condicion_capas: "-" | "SI" | "NO"
     condicion_temperatura: "-" | "SI" | "NO"
     condicion_excluido: "-" | "SI" | "NO"
+    descripcion_material_excluido?: string
 
     // Descripción muestra
     tipo_muestra?: string
@@ -75,4 +76,35 @@ export interface HumedadPayload {
     revisado_fecha?: string
     aprobado_por?: string
     aprobado_fecha?: string
+}
+
+export interface HumedadEnsayoSummary {
+    id: number
+    numero_ensayo: string
+    numero_ot: string
+    cliente?: string | null
+    muestra?: string | null
+    fecha_documento?: string | null
+    estado: string
+    contenido_humedad?: number | null
+    bucket?: string | null
+    object_key?: string | null
+    fecha_creacion?: string | null
+    fecha_actualizacion?: string | null
+}
+
+export interface HumedadEnsayoDetail extends HumedadEnsayoSummary {
+    payload?: HumedadPayload | null
+}
+
+export interface HumedadSaveResponse {
+    id: number
+    numero_ensayo: string
+    numero_ot: string
+    estado: string
+    contenido_humedad?: number | null
+    bucket?: string | null
+    object_key?: string | null
+    fecha_creacion?: string | null
+    fecha_actualizacion?: string | null
 }
