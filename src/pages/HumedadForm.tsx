@@ -165,13 +165,6 @@ const EQUIPO_OPTIONS: Record<EquipoKey, string[]> = {
     equipo_horno: ['-', 'EQP-0049'],
 }
 
-const CONDICIONES_INCAL_TEXTS = [
-    'La muestra de ensayo tiene una masa menor que la minima requerida por la norma. (Si/No)',
-    'La muestra de ensayo presenta mas de un tipo de material (capas, etc.). (Si/No)',
-    'La temperatura de secado es diferente a 110 ± 5°C. (Si/No)',
-    'Se excluyo algun material (tamano y cantidad) de la muestra de prueba. (Si/No)',
-]
-
 const getEnsayoIdFromQuery = (): number | null => {
     const raw = new URLSearchParams(window.location.search).get('ensayo_id')
     if (!raw) return null
@@ -377,10 +370,10 @@ export default function HumedadForm() {
                     <Section title="Condiciones del Ensayo">
                         <div className="space-y-2">
                             {([
-                                ['condicion_masa_menor', 'Masa menor que la mínima requerida'],
-                                ['condicion_capas', 'Más de un tipo de material (capas)'],
-                                ['condicion_temperatura', 'Temperatura distinta a 110 ± 5°C'],
-                                ['condicion_excluido', 'Material excluido de la muestra'],
+                                ['condicion_masa_menor', '- La muestra de ensayo tiene una masa menor que la minima requerida por la norma. (Si/No)'],
+                                ['condicion_capas', '- La muestra de ensayo tiene una masa menor que la minima requerida por la norma. (Si/No) '],
+                                ['condicion_temperatura', 'La temperatura de secado es diferente a 110 ± 5°C. (Si/No)'],
+                                ['condicion_excluido', '- Se excluyo algun material (tamano y cantidad) de la muestra de prueba. (Si/No)'],
                             ] as [CondicionKey, string][]).map(([key, label]) => (
                                 <SelectField
                                     key={key}
@@ -396,13 +389,6 @@ export default function HumedadForm() {
                             <p className="text-xs font-semibold text-amber-800 mb-2">
                                 Condiciones del ensayo (obligatorio segun INCAL)
                             </p>
-                            <div className="space-y-1">
-                                {CONDICIONES_INCAL_TEXTS.map((text) => (
-                                    <p key={text} className="text-xs text-amber-900">
-                                        - {text}
-                                    </p>
-                                ))}
-                            </div>
                             <Input
                                 label="Descripción material excluido"
                                 value={form.descripcion_material_excluido || ''}
