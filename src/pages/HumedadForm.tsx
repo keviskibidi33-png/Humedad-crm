@@ -377,10 +377,10 @@ export default function HumedadForm() {
                     <Section title="Condiciones del Ensayo">
                         <div className="space-y-2">
                             {([
-                                ['condicion_masa_menor', '¿Masa menor?'],
-                                ['condicion_capas', '¿Más de un tipo (capas)?'],
-                                ['condicion_temperatura', '¿Temp. ≠ 110±5°C?'],
-                                ['condicion_excluido', '¿Material excluido?'],
+                                ['condicion_masa_menor', 'Masa menor que la mínima requerida'],
+                                ['condicion_capas', 'Más de un tipo de material (capas)'],
+                                ['condicion_temperatura', 'Temperatura distinta a 110 ± 5°C'],
+                                ['condicion_excluido', 'Material excluido de la muestra'],
                             ] as [CondicionKey, string][]).map(([key, label]) => (
                                 <SelectField
                                     key={key}
