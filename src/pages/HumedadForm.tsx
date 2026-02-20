@@ -143,9 +143,9 @@ const INITIAL_STATE: HumedadFormState = {
     equipo_horno: '-',
     observaciones: '',
     revisado_por: 'FABIAN LA ROSA',
-    revisado_fecha: '-',
+    revisado_fecha: '',
     aprobado_por: 'IRMA COAQUIRA',
-    aprobado_fecha: '-',
+    aprobado_fecha: '',
 }
 
 type CondicionKey = 'condicion_masa_menor' | 'condicion_capas' | 'condicion_temperatura' | 'condicion_excluido'
