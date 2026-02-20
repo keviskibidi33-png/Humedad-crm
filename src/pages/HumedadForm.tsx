@@ -264,6 +264,9 @@ const isFormAtInitialState = (form: HumedadFormState): boolean => {
     return areFormsEquivalent(form, INITIAL_STATE)
 }
 
+const hasNumberValue = (value: number | undefined | null): boolean =>
+    value !== null && value !== undefined && !Number.isNaN(value)
+
 const getEnsayoIdFromQuery = (): number | null => {
     const raw = new URLSearchParams(window.location.search).get('ensayo_id')
     if (!raw) return null
@@ -341,6 +344,26 @@ export default function HumedadForm() {
         if (h != null && r != null) return Math.round((h - r) * 100) / 100
         return undefined
     }, [form.masa_recipiente_muestra_humeda, form.masa_recipiente])
+
+    const ensayoDataStarted = useMemo(() => {
+        return (
+            (form.recipiente_numero || '').trim() !== '' ||
+            hasNumberValue(form.masa_recipiente_muestra_humeda) ||
+            hasNumberValue(form.masa_recipiente_muestra_seca) ||
+            hasNumberValue(form.masa_recipiente_muestra_seca_constante) ||
+            hasNumberValue(form.masa_recipiente) ||
+            (form.numero_ensayo ?? INITIAL_STATE.numero_ensayo) !== INITIAL_STATE.numero_ensayo
+        )
+    }, [
+        form.masa_recipiente,
+        form.masa_recipiente_muestra_humeda,
+        form.masa_recipiente_muestra_seca,
+        form.masa_recipiente_muestra_seca_constante,
+        form.numero_ensayo,
+        form.recipiente_numero,
+    ])
+
+    const minimoHastaFila7Completo = !ensayoDataStarted || masaAgua !== null
 
     const buildPayload = useCallback((): HumedadPayload & { metodo_prueba?: MetodoPruebaOption; forma_particula?: string } => {
         const metodoPrueba = resolveMetodoPrueba(form)
@@ -447,6 +470,16 @@ export default function HumedadForm() {
         return () => window.clearTimeout(timeoutId)
     }, [draftStorageKey, editingEnsayoId, form, loadingEnsayo])
 
+    useEffect(() => {
+        const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
+            if (minimoHastaFila7Completo) return
+            event.preventDefault()
+            event.returnValue = ''
+        }
+        window.addEventListener('beforeunload', beforeUnloadHandler)
+        return () => window.removeEventListener('beforeunload', beforeUnloadHandler)
+    }, [minimoHastaFila7Completo])
+
     const downloadBlob = useCallback((blob: Blob, filename: string) => {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -492,6 +525,10 @@ export default function HumedadForm() {
             toast.error('Complete los campos obligatorios: Muestra, N° OT, Realizado por')
             return
         }
+        if (!minimoHastaFila7Completo) {
+            toast.error('Si ya comenzó Datos del Ensayo, complete mínimo hasta la fila 7: Masa del agua (5-3).')
+            return
+        }
 
         setLoading(true)
         try {
@@ -517,7 +554,7 @@ export default function HumedadForm() {
         } finally {
             setLoading(false)
         }
-    }, [buildPayload, closeParentModalIfEmbedded, downloadBlob, draftStorageKey, editingEnsayoId, form.muestra, form.numero_ot, form.realizado_por])
+    }, [buildPayload, closeParentModalIfEmbedded, downloadBlob, draftStorageKey, editingEnsayoId, form.muestra, form.numero_ot, form.realizado_por, minimoHastaFila7Completo])
 
     // ── Render ────────────────────────────────────────────────────────
     return (
@@ -725,6 +762,11 @@ export default function HumedadForm() {
                                 </tbody>
                             </table>
                         </div>
+                        {ensayoDataStarted && !minimoHastaFila7Completo && (
+                            <p className="mt-3 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                                Para salir o guardar, complete mínimo hasta la fila 7: <strong>Masa del agua (5-3)</strong>.
+                            </p>
+                        )}
                     </Section>
 
                     {/* Método A / Método B - Datos de tabla */}
