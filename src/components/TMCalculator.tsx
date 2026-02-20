@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import type { TamanoMasaEntry } from '@/types'
 
 /** Tabla ASTM D2216 — Tamaño máximo vs masa mínima recomendada */
@@ -20,23 +20,37 @@ interface Props {
     onSelect?: (tm: string, masaMinima: number) => void
     /** Masa actual de la muestra para validar "Cumple" / "No Cumple" */
     masaMuestra?: number
+    /** Valor seleccionado de TM controlado por el formulario */
+    selectedTM?: string
 }
 
-export default function TMCalculator({ onSelect, masaMuestra }: Props) {
-    const [selectedTM, setSelectedTM] = useState<string>("")
+export default function TMCalculator({ onSelect, masaMuestra, selectedTM = "" }: Props) {
+    const normalizeTM = (value: string): string => (
+        value
+            .toUpperCase()
+            .replace(/\s+IN\.?$/i, "")
+            .replace(/\s+/g, " ")
+            .trim()
+    )
 
-    const masaMinima = useMemo(() => {
-        const entry = TABLA_TM.find(e => e.tm === selectedTM)
-        return entry?.masa_g ?? null
+    const resolvedTM = useMemo(() => {
+        if (!selectedTM) return ""
+        const normalizedSelected = normalizeTM(selectedTM)
+        const match = TABLA_TM.find((entry) => normalizeTM(entry.tm) === normalizedSelected)
+        return match?.tm ?? ""
     }, [selectedTM])
 
+    const masaMinima = useMemo(() => {
+        const entry = TABLA_TM.find(e => e.tm === resolvedTM)
+        return entry?.masa_g ?? null
+    }, [resolvedTM])
+
     const cumple = useMemo(() => {
-        if (masaMinima === null || !masaMuestra) return null
+        if (masaMinima === null || masaMuestra === null || masaMuestra === undefined || Number.isNaN(masaMuestra)) return null
         return masaMuestra >= masaMinima
     }, [masaMinima, masaMuestra])
 
     const handleChange = (tm: string) => {
-        setSelectedTM(tm)
         const entry = TABLA_TM.find(e => e.tm === tm)
         if (entry && onSelect) {
             onSelect(tm, entry.masa_g)
@@ -60,7 +74,7 @@ export default function TMCalculator({ onSelect, masaMuestra }: Props) {
                             Tamaño máximo TM:
                         </label>
                         <select
-                            value={selectedTM}
+                            value={resolvedTM}
                             onChange={e => handleChange(e.target.value)}
                             className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm
                                        focus:outline-none focus:ring-2 focus:ring-ring"
@@ -113,7 +127,7 @@ export default function TMCalculator({ onSelect, masaMuestra }: Props) {
                                 <tr
                                     key={entry.tm}
                                     className={`border-t border-border cursor-pointer transition-colors
-                                        ${entry.tm === selectedTM
+                                        ${entry.tm === resolvedTM
                                             ? 'bg-primary/10 font-semibold'
                                             : i % 2 === 0 ? 'bg-background' : 'bg-muted/20'
                                         }

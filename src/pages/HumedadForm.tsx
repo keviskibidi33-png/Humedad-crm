@@ -279,6 +279,7 @@ export default function HumedadForm() {
     const [loading, setLoading] = useState(false)
     const [editingEnsayoId, setEditingEnsayoId] = useState<number | null>(() => getEnsayoIdFromQuery())
     const [loadingEnsayo, setLoadingEnsayo] = useState(false)
+    const [isClearDraftModalOpen, setIsClearDraftModalOpen] = useState(false)
     const hydratedFromServerRef = useRef<HumedadFormState | null>(null)
     const restoredDraftKeysRef = useRef<Set<string>>(new Set())
     const draftStorageKey = useMemo(() => getDraftStorageKey(editingEnsayoId), [editingEnsayoId])
@@ -480,6 +481,17 @@ export default function HumedadForm() {
         return () => window.removeEventListener('beforeunload', beforeUnloadHandler)
     }, [minimoHastaFila7Completo])
 
+    useEffect(() => {
+        if (!isClearDraftModalOpen) return
+        const onEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsClearDraftModalOpen(false)
+            }
+        }
+        window.addEventListener('keydown', onEscape)
+        return () => window.removeEventListener('keydown', onEscape)
+    }, [isClearDraftModalOpen])
+
     const downloadBlob = useCallback((blob: Blob, filename: string) => {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -500,12 +512,7 @@ export default function HumedadForm() {
         }
     }, [])
 
-    const handleClearLocalData = useCallback(() => {
-        const hasChanges = !isFormAtInitialState(form)
-        if (hasChanges && !window.confirm('Se limpiarán los datos no guardados. ¿Deseas continuar?')) {
-            return
-        }
-
+    const clearLocalDraft = useCallback(() => {
         if (typeof window !== 'undefined') {
             localStorage.removeItem(draftStorageKey)
         }
@@ -518,7 +525,21 @@ export default function HumedadForm() {
 
         setForm({ ...INITIAL_STATE })
         toast.success('Datos limpiados.')
-    }, [draftStorageKey, editingEnsayoId, form])
+    }, [draftStorageKey, editingEnsayoId])
+
+    const handleClearLocalData = useCallback(() => {
+        const hasChanges = !isFormAtInitialState(form)
+        if (!hasChanges) {
+            clearLocalDraft()
+            return
+        }
+        setIsClearDraftModalOpen(true)
+    }, [clearLocalDraft, form])
+
+    const confirmClearLocalData = useCallback(() => {
+        setIsClearDraftModalOpen(false)
+        clearLocalDraft()
+    }, [clearLocalDraft])
 
     const handleSave = useCallback(async (withDownload: boolean) => {
         if (!form.muestra || !form.numero_ot || !form.realizado_por) {
@@ -890,6 +911,7 @@ export default function HumedadForm() {
                     <div className="sticky top-4">
                         <TMCalculator
                             onSelect={handleTMSelect}
+                            selectedTM={form.tamano_maximo_particula || ''}
                             masaMuestra={masaMuestraNeta}
                         />
                         {/* Quick info card */}
@@ -912,11 +934,81 @@ export default function HumedadForm() {
                     </div>
                 </div>
             </div>
+
+            <ConfirmActionModal
+                isOpen={isClearDraftModalOpen}
+                title="Limpiar datos no guardados"
+                message="Se limpiarán los datos no guardados. ¿Deseas continuar?"
+                confirmText="Sí, limpiar"
+                cancelText="Cancelar"
+                onConfirm={confirmClearLocalData}
+                onCancel={() => setIsClearDraftModalOpen(false)}
+            />
         </div>
     )
 }
 
 // ── Reusable sub-components ─────────────────────────────────────────────────
+
+function ConfirmActionModal({
+    isOpen,
+    title,
+    message,
+    confirmText,
+    cancelText,
+    onConfirm,
+    onCancel,
+}: {
+    isOpen: boolean
+    title: string
+    message: string
+    confirmText: string
+    cancelText: string
+    onConfirm: () => void
+    onCancel: () => void
+}) {
+    if (!isOpen) return null
+
+    return (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title}>
+            <button
+                type="button"
+                className="absolute inset-0 bg-slate-900/45 backdrop-blur-sm cursor-default"
+                onClick={onCancel}
+                aria-label="Cerrar modal"
+            />
+            <div className="relative w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl">
+                <div className="px-6 pt-6 pb-4">
+                    <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                            <Trash2 className="h-5 w-5" />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+                            <p className="text-sm leading-relaxed text-muted-foreground">{message}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="px-6 pb-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="h-10 px-4 rounded-lg border border-input bg-background text-foreground text-sm font-medium hover:bg-muted/60 transition-colors"
+                    >
+                        {cancelText}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onConfirm}
+                        className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+                    >
+                        {confirmText}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
 
 function Section({ title, icon, children }: {
     title: string
