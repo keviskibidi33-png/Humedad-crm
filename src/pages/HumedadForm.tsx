@@ -156,7 +156,7 @@ const INITIAL_STATE: HumedadFormState = {
     metodo_b_legibilidad_1: '0.01 g',
     metodo_b_legibilidad_2: '0.01 g',
     metodo_b_legibilidad_3: '0.01 g',
-    numero_ensayo: 1,
+    numero_ensayo: undefined,
     recipiente_numero: '',
     masa_recipiente_muestra_humeda: undefined,
     masa_recipiente_muestra_seca: undefined,
