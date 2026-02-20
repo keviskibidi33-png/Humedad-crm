@@ -24,6 +24,30 @@ const normalizeMuestraCode = (raw: string): string => {
     return value
 }
 
+const buildHumedadExportFilename = (muestraRaw: string): string => {
+    const raw = (muestraRaw || '').trim().toUpperCase()
+    const currentYear = getCurrentYearShort()
+    let xxx = 'XXX'
+    let yy = currentYear
+
+    const strict = raw.match(/^([A-Z0-9]+)-SU-(\d{2})$/)
+    if (strict) {
+        xxx = strict[1]
+        yy = strict[2]
+    } else {
+        const relaxed = raw.match(/([A-Z0-9]+)-SU(?:-(\d{2}))?/)
+        if (relaxed) {
+            xxx = relaxed[1]
+            yy = relaxed[2] || currentYear
+        } else {
+            const compact = raw.replace(/[^A-Z0-9]+/g, '')
+            if (compact) xxx = compact.slice(0, 12)
+        }
+    }
+
+    return `Formato N-${xxx}-${yy} SU20 HUMEDAD SUELO - V05.xlsx`
+}
+
 const normalizeNumeroOtCode = (raw: string): string => {
     const value = raw.trim().toUpperCase()
     if (!value) return ''
@@ -318,11 +342,11 @@ export default function HumedadForm() {
         }
     }, [editingEnsayoId])
 
-    const downloadBlob = useCallback((blob: Blob, numeroOt: string) => {
+    const downloadBlob = useCallback((blob: Blob, filename: string) => {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `Humedad_${numeroOt}_${new Date().toISOString().slice(0, 10)}.xlsx`
+        a.download = filename
         a.click()
         URL.revokeObjectURL(url)
     }, [])
@@ -348,8 +372,8 @@ export default function HumedadForm() {
         try {
             const payload = buildPayload()
             if (withDownload) {
-                const { blob } = await saveAndDownloadHumedadExcel(payload, editingEnsayoId ?? undefined)
-                downloadBlob(blob, payload.numero_ot)
+                const { blob, filename } = await saveAndDownloadHumedadExcel(payload, editingEnsayoId ?? undefined)
+                downloadBlob(blob, filename || buildHumedadExportFilename(payload.muestra))
                 toast.success(editingEnsayoId ? 'Formato actualizado y descargado.' : 'Formato guardado y descargado.')
             } else {
                 await saveHumedadEnsayo(payload, editingEnsayoId ?? undefined)

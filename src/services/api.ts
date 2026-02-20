@@ -1,5 +1,9 @@
 import axios from 'axios'
 import type {
+    CBRPayload,
+    CBRSaveResponse,
+    CBREnsayoDetail,
+    CBREnsayoSummary,
     HumedadEnsayoDetail,
     HumedadEnsayoSummary,
     HumedadPayload,
@@ -11,6 +15,21 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://api.geofal.com.pe'
 const api = axios.create({
     baseURL: API_URL,
 })
+
+const extractFilenameFromContentDisposition = (headerValue: string | undefined): string | undefined => {
+    if (!headerValue) return undefined
+    const utf8Match = headerValue.match(/filename\*=UTF-8''([^;]+)/i)
+    if (utf8Match?.[1]) {
+        try {
+            return decodeURIComponent(utf8Match[1].trim())
+        } catch {
+            return utf8Match[1].trim()
+        }
+    }
+    const plainMatch = headerValue.match(/filename="?([^\";]+)"?/i)
+    if (plainMatch?.[1]) return plainMatch[1].trim()
+    return undefined
+}
 
 // Inject JWT token
 api.interceptors.request.use((config) => {
@@ -58,7 +77,7 @@ export async function saveHumedadEnsayo(
 export async function saveAndDownloadHumedadExcel(
     payload: HumedadPayload,
     ensayoId?: number,
-): Promise<{ blob: Blob; ensayoId?: number }> {
+): Promise<{ blob: Blob; ensayoId?: number; filename?: string }> {
     const response = await api.post('/api/humedad/excel', payload, {
         params: {
             download: true,
@@ -68,10 +87,12 @@ export async function saveAndDownloadHumedadExcel(
     })
 
     const humedadIdHeader = response.headers['x-humedad-id']
+    const filename = extractFilenameFromContentDisposition(response.headers['content-disposition'])
     const parsedId = Number(humedadIdHeader)
     return {
         blob: response.data,
         ensayoId: Number.isFinite(parsedId) ? parsedId : undefined,
+        filename,
     }
 }
 
@@ -84,6 +105,61 @@ export async function listHumedadEnsayos(limit = 100): Promise<HumedadEnsayoSumm
 
 export async function getHumedadEnsayoDetail(ensayoId: number): Promise<HumedadEnsayoDetail> {
     const { data } = await api.get<HumedadEnsayoDetail>(`/api/humedad/${ensayoId}`)
+    return data
+}
+
+export async function generateCBRExcel(payload: CBRPayload): Promise<Blob> {
+    const { data } = await api.post('/api/cbr/excel', payload, {
+        params: {
+            download: true,
+        },
+        responseType: 'blob',
+    })
+    return data
+}
+
+export async function saveCBREnsayo(
+    payload: CBRPayload,
+    ensayoId?: number,
+): Promise<CBRSaveResponse> {
+    const { data } = await api.post<CBRSaveResponse>('/api/cbr/excel', payload, {
+        params: {
+            download: false,
+            ensayo_id: ensayoId,
+        },
+    })
+    return data
+}
+
+export async function saveAndDownloadCBRExcel(
+    payload: CBRPayload,
+    ensayoId?: number,
+): Promise<{ blob: Blob; ensayoId?: number }> {
+    const response = await api.post('/api/cbr/excel', payload, {
+        params: {
+            download: true,
+            ensayo_id: ensayoId,
+        },
+        responseType: 'blob',
+    })
+
+    const cbrIdHeader = response.headers['x-cbr-id']
+    const parsedId = Number(cbrIdHeader)
+    return {
+        blob: response.data,
+        ensayoId: Number.isFinite(parsedId) ? parsedId : undefined,
+    }
+}
+
+export async function listCBREnsayos(limit = 100): Promise<CBREnsayoSummary[]> {
+    const { data } = await api.get<CBREnsayoSummary[]>('/api/cbr', {
+        params: { limit },
+    })
+    return data
+}
+
+export async function getCBREnsayoDetail(ensayoId: number): Promise<CBREnsayoDetail> {
+    const { data } = await api.get<CBREnsayoDetail>(`/api/cbr/${ensayoId}`)
     return data
 }
 
