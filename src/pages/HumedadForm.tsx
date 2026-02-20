@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
-import { ChevronDown, Download, Loader2, Droplets, FlaskConical } from 'lucide-react'
+import { ChevronDown, Download, Loader2, Droplets, FlaskConical, Trash2 } from 'lucide-react'
 import TMCalculator from '@/components/TMCalculator'
 import {
     getHumedadEnsayoDetail,
@@ -208,6 +208,61 @@ const EQUIPO_OPTIONS: Record<EquipoKey, string[]> = {
 
 const REVISADO_POR_OPTIONS = ['-', 'FABIAN LA ROSA']
 const APROBADO_POR_OPTIONS = ['-', 'IRMA COAQUIRA']
+const HUMEDAD_DRAFT_STORAGE_PREFIX = 'humedad_form_draft_v1'
+const AUTOSAVE_DEBOUNCE_MS = 700
+
+interface HumedadDraftSnapshot {
+    version: number
+    updatedAt: string
+    form: Partial<HumedadFormState>
+}
+
+const getDraftStorageKey = (ensayoId: number | null) =>
+    `${HUMEDAD_DRAFT_STORAGE_PREFIX}:${ensayoId ?? 'new'}`
+
+const hydrateHumedadFormState = (candidate: Partial<HumedadFormState>): HumedadFormState => {
+    const mergedPayload = {
+        ...INITIAL_STATE,
+        ...candidate,
+    }
+    const metodoPrueba = resolveMetodoPrueba(mergedPayload)
+    return {
+        ...mergedPayload,
+        metodo_prueba: metodoPrueba,
+        metodo_a: metodoPrueba === 'A',
+        metodo_b: metodoPrueba === 'B',
+        forma_particula: sanitizeAlphaNumericText(mergedPayload.forma_particula || ''),
+    }
+}
+
+const isSameNumber = (a: unknown, b: unknown): boolean => {
+    const na = typeof a === 'number' ? a : (a == null || a === '' ? undefined : Number(a))
+    const nb = typeof b === 'number' ? b : (b == null || b === '' ? undefined : Number(b))
+    if (Number.isNaN(na) && Number.isNaN(nb)) return true
+    return na === nb
+}
+
+const areFormsEquivalent = (left: HumedadFormState, right: HumedadFormState): boolean => {
+    const keys = Object.keys(INITIAL_STATE) as Array<keyof HumedadFormState>
+    return keys.every((key) => {
+        const initialValue = right[key]
+        const currentValue = left[key]
+
+        if (typeof initialValue === 'boolean') {
+            return Boolean(currentValue) === initialValue
+        }
+        if (typeof initialValue === 'number' || typeof currentValue === 'number') {
+            return isSameNumber(currentValue, initialValue)
+        }
+        const normalizedCurrent = String(currentValue ?? '').trim()
+        const normalizedInitial = String(initialValue ?? '').trim()
+        return normalizedCurrent === normalizedInitial
+    })
+}
+
+const isFormAtInitialState = (form: HumedadFormState): boolean => {
+    return areFormsEquivalent(form, INITIAL_STATE)
+}
 
 const getEnsayoIdFromQuery = (): number | null => {
     const raw = new URLSearchParams(window.location.search).get('ensayo_id')
@@ -221,6 +276,9 @@ export default function HumedadForm() {
     const [loading, setLoading] = useState(false)
     const [editingEnsayoId, setEditingEnsayoId] = useState<number | null>(() => getEnsayoIdFromQuery())
     const [loadingEnsayo, setLoadingEnsayo] = useState(false)
+    const hydratedFromServerRef = useRef<HumedadFormState | null>(null)
+    const restoredDraftKeysRef = useRef<Set<string>>(new Set())
+    const draftStorageKey = useMemo(() => getDraftStorageKey(editingEnsayoId), [editingEnsayoId])
 
     // ── Helpers ───────────────────────────────────────────────────────
     const set = useCallback(<K extends keyof HumedadFormState>(key: K, value: HumedadFormState[K]) => {
@@ -313,18 +371,9 @@ export default function HumedadForm() {
                     return
                 }
                 if (!cancelled) {
-                    const mergedPayload = {
-                        ...INITIAL_STATE,
-                        ...(detail.payload as Partial<HumedadFormState>),
-                    }
-                    const metodoPrueba = resolveMetodoPrueba(mergedPayload)
-                    setForm({
-                        ...mergedPayload,
-                        metodo_prueba: metodoPrueba,
-                        metodo_a: metodoPrueba === 'A',
-                        metodo_b: metodoPrueba === 'B',
-                        forma_particula: sanitizeAlphaNumericText(mergedPayload.forma_particula || ''),
-                    })
+                    const hydrated = hydrateHumedadFormState(detail.payload as Partial<HumedadFormState>)
+                    hydratedFromServerRef.current = hydrated
+                    setForm(hydrated)
                 }
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : 'Error desconocido'
@@ -341,6 +390,62 @@ export default function HumedadForm() {
             cancelled = true
         }
     }, [editingEnsayoId])
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        if (restoredDraftKeysRef.current.has(draftStorageKey)) return
+
+        restoredDraftKeysRef.current.add(draftStorageKey)
+        const raw = localStorage.getItem(draftStorageKey)
+        if (!raw) return
+
+        try {
+            const parsed = JSON.parse(raw) as HumedadDraftSnapshot
+            if (!parsed || typeof parsed !== 'object' || typeof parsed.form !== 'object') {
+                localStorage.removeItem(draftStorageKey)
+                return
+            }
+
+            const hydratedDraft = hydrateHumedadFormState(parsed.form)
+
+            if (editingEnsayoId && hydratedFromServerRef.current && areFormsEquivalent(hydratedDraft, hydratedFromServerRef.current)) {
+                localStorage.removeItem(draftStorageKey)
+                return
+            }
+
+            setForm(hydratedDraft)
+            toast.success('Se restauró un borrador local.')
+        } catch {
+            localStorage.removeItem(draftStorageKey)
+        }
+    }, [draftStorageKey, editingEnsayoId])
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        if (loadingEnsayo) return
+
+        const timeoutId = window.setTimeout(() => {
+            const sameAsServer = Boolean(
+                editingEnsayoId &&
+                hydratedFromServerRef.current &&
+                areFormsEquivalent(form, hydratedFromServerRef.current)
+            )
+
+            if (isFormAtInitialState(form) || sameAsServer) {
+                localStorage.removeItem(draftStorageKey)
+                return
+            }
+
+            const snapshot: HumedadDraftSnapshot = {
+                version: 1,
+                updatedAt: new Date().toISOString(),
+                form,
+            }
+            localStorage.setItem(draftStorageKey, JSON.stringify(snapshot))
+        }, AUTOSAVE_DEBOUNCE_MS)
+
+        return () => window.clearTimeout(timeoutId)
+    }, [draftStorageKey, editingEnsayoId, form, loadingEnsayo])
 
     const downloadBlob = useCallback((blob: Blob, filename: string) => {
         const url = URL.createObjectURL(blob)
@@ -362,6 +467,26 @@ export default function HumedadForm() {
         }
     }, [])
 
+    const handleClearLocalData = useCallback(() => {
+        const hasChanges = !isFormAtInitialState(form)
+        if (hasChanges && !window.confirm('Se limpiarán los datos no guardados. ¿Deseas continuar?')) {
+            return
+        }
+
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem(draftStorageKey)
+        }
+
+        if (editingEnsayoId && hydratedFromServerRef.current) {
+            setForm(hydratedFromServerRef.current)
+            toast.success('Cambios locales limpiados. Se restauraron los datos guardados.')
+            return
+        }
+
+        setForm({ ...INITIAL_STATE })
+        toast.success('Datos limpiados.')
+    }, [draftStorageKey, editingEnsayoId, form])
+
     const handleSave = useCallback(async (withDownload: boolean) => {
         if (!form.muestra || !form.numero_ot || !form.realizado_por) {
             toast.error('Complete los campos obligatorios: Muestra, N° OT, Realizado por')
@@ -379,6 +504,10 @@ export default function HumedadForm() {
                 await saveHumedadEnsayo(payload, editingEnsayoId ?? undefined)
                 toast.success(editingEnsayoId ? 'Formato actualizado correctamente.' : 'Formato guardado correctamente.')
             }
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem(draftStorageKey)
+            }
+            hydratedFromServerRef.current = null
             setForm({ ...INITIAL_STATE })
             setEditingEnsayoId(null)
             closeParentModalIfEmbedded()
@@ -388,7 +517,7 @@ export default function HumedadForm() {
         } finally {
             setLoading(false)
         }
-    }, [buildPayload, closeParentModalIfEmbedded, downloadBlob, editingEnsayoId, form.muestra, form.numero_ot, form.realizado_por])
+    }, [buildPayload, closeParentModalIfEmbedded, downloadBlob, draftStorageKey, editingEnsayoId, form.muestra, form.numero_ot, form.realizado_por])
 
     // ── Render ────────────────────────────────────────────────────────
     return (
@@ -676,7 +805,17 @@ export default function HumedadForm() {
                     </Section>
 
                     {/* Guardado / Descarga */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <button
+                            onClick={handleClearLocalData}
+                            disabled={loading}
+                            className="h-11 rounded-lg border border-input bg-background text-foreground font-medium
+                                   hover:bg-muted/60 transition-colors disabled:opacity-50
+                                   flex items-center justify-center gap-2"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Limpiar datos
+                        </button>
                         <button
                             onClick={() => void handleSave(false)}
                             disabled={loading}
