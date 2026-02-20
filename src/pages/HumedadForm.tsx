@@ -74,8 +74,30 @@ const normalizeFlexibleDate = (raw: string): string => {
     return value
 }
 
+const sanitizeAlphaNumericText = (raw: string): string => {
+    return raw
+        .replace(/[^0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, '')
+        .replace(/\s+/g, ' ')
+}
+
+type MetodoPruebaOption = '-' | 'A' | 'B'
+
+const resolveMetodoPrueba = (payload: Partial<HumedadPayload> & { metodo_prueba?: string | null }): MetodoPruebaOption => {
+    const direct = (payload.metodo_prueba || '').toUpperCase()
+    if (direct === 'A' || direct === 'B') return direct
+    if (payload.metodo_a && !payload.metodo_b) return 'A'
+    if (payload.metodo_b && !payload.metodo_a) return 'B'
+    if (payload.metodo_a && payload.metodo_b) return 'A'
+    return '-'
+}
+
+type HumedadFormState = HumedadPayload & {
+    metodo_prueba: MetodoPruebaOption
+    forma_particula: string
+}
+
 // ── Initial form state ───────────────────────────────────────────────────────
-const INITIAL_STATE: HumedadPayload = {
+const INITIAL_STATE: HumedadFormState = {
     muestra: '',
     numero_ot: '',
     fecha_ensayo: '',
@@ -88,6 +110,8 @@ const INITIAL_STATE: HumedadPayload = {
     tipo_muestra: '',
     condicion_muestra: '',
     tamano_maximo_particula: '',
+    forma_particula: '',
+    metodo_prueba: '-',
     metodo_a: false,
     metodo_b: false,
     metodo_a_tamano_1: '3 in',
@@ -166,17 +190,17 @@ const getEnsayoIdFromQuery = (): number | null => {
 }
 
 export default function HumedadForm() {
-    const [form, setForm] = useState<HumedadPayload>({ ...INITIAL_STATE })
+    const [form, setForm] = useState<HumedadFormState>({ ...INITIAL_STATE })
     const [loading, setLoading] = useState(false)
     const [editingEnsayoId, setEditingEnsayoId] = useState<number | null>(() => getEnsayoIdFromQuery())
     const [loadingEnsayo, setLoadingEnsayo] = useState(false)
 
     // ── Helpers ───────────────────────────────────────────────────────
-    const set = useCallback(<K extends keyof HumedadPayload>(key: K, value: HumedadPayload[K]) => {
+    const set = useCallback(<K extends keyof HumedadFormState>(key: K, value: HumedadFormState[K]) => {
         setForm(prev => ({ ...prev, [key]: value }))
     }, [])
 
-    const setNum = useCallback((key: keyof HumedadPayload, raw: string) => {
+    const setNum = useCallback((key: keyof HumedadFormState, raw: string) => {
         const val = raw === '' ? undefined : parseFloat(raw)
         setForm(prev => ({ ...prev, [key]: val }))
     }, [])
@@ -191,6 +215,16 @@ export default function HumedadForm() {
             if (formatted === current) return prev
             return { ...prev, [key]: formatted }
         })
+    }, [])
+
+    const handleMetodoPruebaChange = useCallback((rawValue: string) => {
+        const metodo = rawValue === 'A' || rawValue === 'B' ? rawValue : '-'
+        setForm(prev => ({
+            ...prev,
+            metodo_prueba: metodo,
+            metodo_a: metodo === 'A',
+            metodo_b: metodo === 'B',
+        }))
     }, [])
 
     // ── Computed formulas ─────────────────────────────────────────────
@@ -223,8 +257,16 @@ export default function HumedadForm() {
         return undefined
     }, [form.masa_recipiente_muestra_humeda, form.masa_recipiente])
 
-    const buildPayload = useCallback((): HumedadPayload => {
-        const payload: HumedadPayload = { ...form }
+    const buildPayload = useCallback((): HumedadPayload & { metodo_prueba?: MetodoPruebaOption; forma_particula?: string } => {
+        const metodoPrueba = resolveMetodoPrueba(form)
+        const formaParticula = sanitizeAlphaNumericText(form.forma_particula || '').trim()
+        const payload: HumedadPayload & { metodo_prueba?: MetodoPruebaOption; forma_particula?: string } = {
+            ...form,
+            metodo_prueba: metodoPrueba,
+            forma_particula: formaParticula,
+            metodo_a: metodoPrueba === 'A',
+            metodo_b: metodoPrueba === 'B',
+        }
         if (masaAgua !== null) payload.masa_agua = masaAgua
         if (masaMuestraSeca !== null) payload.masa_muestra_seca = masaMuestraSeca
         if (contenidoHumedad !== null) payload.contenido_humedad = contenidoHumedad
@@ -244,7 +286,18 @@ export default function HumedadForm() {
                     return
                 }
                 if (!cancelled) {
-                    setForm({ ...INITIAL_STATE, ...detail.payload })
+                    const mergedPayload = {
+                        ...INITIAL_STATE,
+                        ...(detail.payload as Partial<HumedadFormState>),
+                    }
+                    const metodoPrueba = resolveMetodoPrueba(mergedPayload)
+                    setForm({
+                        ...mergedPayload,
+                        metodo_prueba: metodoPrueba,
+                        metodo_a: metodoPrueba === 'A',
+                        metodo_b: metodoPrueba === 'B',
+                        forma_particula: sanitizeAlphaNumericText(mergedPayload.forma_particula || ''),
+                    })
                 }
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : 'Error desconocido'
@@ -404,19 +457,27 @@ export default function HumedadForm() {
 
                     {/* Descripción de la muestra + Método */}
                     <Section title="Descripción de la Muestra">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
                             <Input label="Tipo de muestra" value={form.tipo_muestra || ''}
                                    onChange={v => set('tipo_muestra', v)} />
                             <Input label="Condición de la muestra" value={form.condicion_muestra || ''}
                                    onChange={v => set('condicion_muestra', v)} />
                             <Input label="Tamaño máx. partícula (in)" value={form.tamano_maximo_particula || ''}
                                    onChange={v => set('tamano_maximo_particula', v)} />
+                            <Input
+                                label="Forma de la partícula"
+                                value={form.forma_particula || ''}
+                                onChange={v => set('forma_particula', sanitizeAlphaNumericText(v))}
+                                placeholder="Ej: Angular 12"
+                            />
                         </div>
-                        <div className="flex items-center gap-6 mt-3">
-                            <Checkbox label="Método A" checked={form.metodo_a}
-                                      onChange={v => set('metodo_a', v)} />
-                            <Checkbox label="Método B" checked={form.metodo_b}
-                                      onChange={v => set('metodo_b', v)} />
+                        <div className="mt-3 max-w-xs">
+                            <SelectField
+                                label="Método de prueba"
+                                value={form.metodo_prueba}
+                                options={['-', 'A', 'B']}
+                                onChange={handleMetodoPruebaChange}
+                            />
                         </div>
                     </Section>
 
@@ -512,18 +573,17 @@ export default function HumedadForm() {
 
                     {/* Método A / Método B - Datos de tabla */}
                     <Section title="Método A / Método B">
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        {form.metodo_prueba === '-' ? (
+                            <p className="text-sm text-muted-foreground">
+                                Seleccione Método A o B para visualizar la tabla de referencia.
+                            </p>
+                        ) : (
                             <MetodoGrid
-                                title="Método A"
-                                rows={METHOD_A_ROWS}
+                                title={`Método ${form.metodo_prueba}`}
+                                rows={form.metodo_prueba === 'A' ? METHOD_A_ROWS : METHOD_B_ROWS}
                                 form={form}
                             />
-                            <MetodoGrid
-                                title="Método B"
-                                rows={METHOD_B_ROWS}
-                                form={form}
-                            />
-                        </div>
+                        )}
                     </Section>
 
                     {/* Equipo */}
@@ -622,6 +682,8 @@ export default function HumedadForm() {
                             <p><strong>Muestra:</strong> {form.muestra || '—'}</p>
                             <p><strong>OT:</strong> {form.numero_ot || '—'}</p>
                             <p><strong>TM:</strong> {form.tamano_maximo_particula || '—'}</p>
+                            <p><strong>Forma partícula:</strong> {form.forma_particula || '—'}</p>
+                            <p><strong>Método:</strong> {form.metodo_prueba !== '-' ? form.metodo_prueba : '—'}</p>
                             <p><strong>Masa muestra neta:</strong> {masaMuestraNeta != null ? `${masaMuestraNeta} g` : '—'}</p>
                             <p><strong>Humedad:</strong>{' '}
                                 {contenidoHumedad != null
@@ -724,26 +786,6 @@ function SelectField({ label, value, onChange, options, inline = false }: {
                 {selectElement}
             </div>
         </div>
-    )
-}
-
-function Checkbox({ label, checked, onChange, disabled = false }: {
-    label: string
-    checked: boolean
-    onChange: (v: boolean) => void
-    disabled?: boolean
-}) {
-    return (
-        <label className={`flex items-center gap-2 select-none ${disabled ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}>
-            <input
-                type="checkbox"
-                checked={checked}
-                onChange={e => onChange(e.target.checked)}
-                disabled={disabled}
-                className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
-            />
-            <span className="text-sm text-foreground">{label}</span>
-        </label>
     )
 }
 
