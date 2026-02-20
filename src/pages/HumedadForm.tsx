@@ -142,9 +142,9 @@ const INITIAL_STATE: HumedadFormState = {
     equipo_balanza_001: '-',
     equipo_horno: '-',
     observaciones: '',
-    revisado_por: 'FABIAN LA ROSA',
+    revisado_por: '-',
     revisado_fecha: '',
-    aprobado_por: 'IRMA COAQUIRA',
+    aprobado_por: '-',
     aprobado_fecha: '',
 }
 
@@ -181,6 +181,9 @@ const EQUIPO_OPTIONS: Record<EquipoKey, string[]> = {
     equipo_balanza_001: ['-', 'EQP-0045'],
     equipo_horno: ['-', 'EQP-0049'],
 }
+
+const REVISADO_POR_OPTIONS = ['-', 'FABIAN LA ROSA']
+const APROBADO_POR_OPTIONS = ['-', 'IRMA COAQUIRA']
 
 const getEnsayoIdFromQuery = (): number | null => {
     const raw = new URLSearchParams(window.location.search).get('ensayo_id')
@@ -625,14 +628,22 @@ export default function HumedadForm() {
                     {/* Footer - Revisado / Aprobado */}
                     <Section title="Revisado / Aprobado">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <Input label="Revisado por" value={form.revisado_por || ''}
-                                   onChange={v => set('revisado_por', v)} />
+                            <SelectField
+                                label="Revisado por"
+                                value={form.revisado_por || '-'}
+                                options={REVISADO_POR_OPTIONS}
+                                onChange={v => set('revisado_por', v)}
+                            />
                             <Input label="Fecha revisión" value={form.revisado_fecha || ''}
                                    onChange={v => set('revisado_fecha', v)}
                                    onBlur={() => applyFormattedField('revisado_fecha', normalizeFlexibleDate)}
                                    placeholder="DD/MM/AA" />
-                            <Input label="Aprobado por" value={form.aprobado_por || ''}
-                                   onChange={v => set('aprobado_por', v)} />
+                            <SelectField
+                                label="Aprobado por"
+                                value={form.aprobado_por || '-'}
+                                options={APROBADO_POR_OPTIONS}
+                                onChange={v => set('aprobado_por', v)}
+                            />
                             <Input label="Fecha aprobación" value={form.aprobado_fecha || ''}
                                    onChange={v => set('aprobado_fecha', v)}
                                    onBlur={() => applyFormattedField('aprobado_fecha', normalizeFlexibleDate)}
