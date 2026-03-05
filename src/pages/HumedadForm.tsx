@@ -10,6 +10,13 @@ import {
 import type { HumedadPayload, HumedadEnsayoDetail } from '@/types'
 
 const getCurrentYearShort = () => new Date().getFullYear().toString().slice(-2)
+const formatTodayShortDate = () => {
+    const d = new Date()
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const yy = String(d.getFullYear()).slice(-2)
+    return `${dd}/${mm}/${yy}`
+}
 
 const normalizeMuestraCode = (raw: string): string => {
     const value = raw.trim().toUpperCase()
@@ -124,7 +131,7 @@ type HumedadFormState = HumedadPayload & {
 const INITIAL_STATE: HumedadFormState = {
     muestra: '',
     numero_ot: '',
-    fecha_ensayo: '',
+    fecha_ensayo: formatTodayShortDate(),
     realizado_por: '',
     condicion_masa_menor: '-',
     condicion_capas: '-',
@@ -167,9 +174,9 @@ const INITIAL_STATE: HumedadFormState = {
     equipo_horno: '-',
     observaciones: '',
     revisado_por: '-',
-    revisado_fecha: '',
+    revisado_fecha: formatTodayShortDate(),
     aprobado_por: '-',
-    aprobado_fecha: '',
+    aprobado_fecha: formatTodayShortDate(),
 }
 
 type CondicionKey = 'condicion_masa_menor' | 'condicion_capas' | 'condicion_temperatura' | 'condicion_excluido'

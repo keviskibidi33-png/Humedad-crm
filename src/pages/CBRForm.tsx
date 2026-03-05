@@ -15,6 +15,13 @@ import type {
 } from '@/types'
 
 const getCurrentYearShort = () => new Date().getFullYear().toString().slice(-2)
+const formatTodayShortDate = () => {
+    const d = new Date()
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const yy = String(d.getFullYear()).slice(-2)
+    return `${dd}/${mm}/${yy}`
+}
 
 const normalizeMuestraCode = (raw: string): string => {
     const value = raw.trim().toUpperCase()
@@ -135,7 +142,7 @@ const EMPTY_HINCHAMIENTO_ROWS = () => Array.from({ length: 6 }, (): CBRHinchamie
 const buildInitialState = (): CBRPayload => ({
     muestra: '',
     numero_ot: '',
-    fecha_ensayo: '',
+    fecha_ensayo: formatTodayShortDate(),
     realizado_por: '',
 
     sobretamano_porcentaje: undefined,
@@ -174,9 +181,9 @@ const buildInitialState = (): CBRPayload => ({
 
     observaciones: '',
     revisado_por: '-',
-    revisado_fecha: '',
+    revisado_fecha: formatTodayShortDate(),
     aprobado_por: '-',
-    aprobado_fecha: '',
+    aprobado_fecha: formatTodayShortDate(),
 })
 
 type NumericArrayKey =

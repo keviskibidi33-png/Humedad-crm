@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Toaster } from 'react-hot-toast'
 import HumedadForm from './pages/HumedadForm'
+import CBRForm from './pages/CBRForm'
 import { SessionGuard } from './components/SessionGuard'
 
 const CRM_LOGIN_URL = import.meta.env.VITE_CRM_LOGIN_URL || 'http://localhost:3000/login'
@@ -78,11 +79,13 @@ function AccessGate({ children }: { children: ReactNode }) {
 }
 
 function App() {
+    const isCBRRoute = typeof window !== 'undefined' && window.location.pathname.toLowerCase().includes('/cbr')
+
     return (
         <div className="min-h-screen bg-background font-sans antialiased">
             <AccessGate>
                 <SessionGuard />
-                <HumedadForm />
+                {isCBRRoute ? <CBRForm /> : <HumedadForm />}
             </AccessGate>
             <Toaster position="top-right" />
         </div>
