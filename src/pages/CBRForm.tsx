@@ -142,7 +142,7 @@ const EMPTY_HINCHAMIENTO_ROWS = () => Array.from({ length: 6 }, (): CBRHinchamie
 const buildInitialState = (): CBRPayload => ({
     muestra: '',
     numero_ot: '',
-    fecha_ensayo: formatTodayShortDate(),
+    fecha_ensayo: '',
     realizado_por: '',
 
     sobretamano_porcentaje: undefined,

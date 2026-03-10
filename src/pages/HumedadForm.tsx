@@ -131,7 +131,7 @@ type HumedadFormState = HumedadPayload & {
 const INITIAL_STATE: HumedadFormState = {
     muestra: '',
     numero_ot: '',
-    fecha_ensayo: formatTodayShortDate(),
+    fecha_ensayo: '',
     realizado_por: '',
     condicion_masa_menor: '-',
     condicion_capas: '-',
@@ -340,7 +340,7 @@ export default function HumedadForm() {
 
     const contenidoHumedad = useMemo(() => {
         if (masaAgua != null && masaMuestraSeca != null && masaMuestraSeca !== 0) {
-            return Math.round((masaAgua / masaMuestraSeca) * 10000) / 100
+            return Math.round((masaAgua / masaMuestraSeca) * 1000) / 10
         }
         return null
     }, [masaAgua, masaMuestraSeca])
