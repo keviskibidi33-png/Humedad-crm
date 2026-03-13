@@ -51,7 +51,13 @@ api.interceptors.response.use(
     },
 )
 
-export async function generateHumedadExcel(payload: HumedadPayload): Promise<Blob> {
+
+const extractFilename = (contentDisposition?: string): string | undefined => {
+    const match = typeof contentDisposition === 'string' ? contentDisposition.match(/filename="?([^";]+)"?/i) : null
+    return match?.[1]
+}
+
+export async function generateHumedadExcel(payload: HumedadPayload): Promise<{ blob: Blob; filename?: string }> {
     const { data } = await api.post('/api/humedad/excel', payload, {
         params: {
             download: true,
@@ -108,7 +114,7 @@ export async function getHumedadEnsayoDetail(ensayoId: number): Promise<HumedadE
     return data
 }
 
-export async function generateCBRExcel(payload: CBRPayload): Promise<Blob> {
+export async function generateCBRExcel(payload: CBRPayload): Promise<{ blob: Blob; filename?: string }> {
     const { data } = await api.post('/api/cbr/excel', payload, {
         params: {
             download: true,
@@ -134,7 +140,7 @@ export async function saveCBREnsayo(
 export async function saveAndDownloadCBRExcel(
     payload: CBRPayload,
     ensayoId?: number,
-): Promise<{ blob: Blob; ensayoId?: number }> {
+): Promise<{ blob: Blob; ensayoId?: number; filename?: string }> {
     const response = await api.post('/api/cbr/excel', payload, {
         params: {
             download: true,
@@ -148,6 +154,7 @@ export async function saveAndDownloadCBRExcel(
     return {
         blob: response.data,
         ensayoId: Number.isFinite(parsedId) ? parsedId : undefined,
+        filename: extractFilename(response.headers['content-disposition']),
     }
 }
 

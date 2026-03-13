@@ -15,6 +15,19 @@ import type {
 } from '@/types'
 import FormatConfirmModal from '../components/FormatConfirmModal'
 
+
+const buildFormatPreview = (sampleCode: string | undefined, materialCode: 'SU' | 'AG', ensayo: string) => {
+    const currentYear = new Date().getFullYear().toString().slice(-2)
+    const normalized = (sampleCode || '').trim().toUpperCase()
+    const fullMatch = normalized.match(/^(\d+)(?:-[A-Z0-9. ]+)?-(\d{2,4})$/)
+    const partialMatch = normalized.match(/^(\d+)(?:-(\d{2,4}))?$/)
+    const match = fullMatch || partialMatch
+    const numero = match?.[1] || 'xxxx'
+    const year = (match?.[2] || currentYear).slice(-2)
+    return `Formato N-${numero}-${materialCode}-${year} ${ensayo}`
+}
+
+
 const getCurrentYearShort = () => new Date().getFullYear().toString().slice(-2)
 const formatTodayShortDate = () => {
     const d = new Date()
@@ -441,11 +454,11 @@ export default function CBRForm() {
         return () => window.clearTimeout(timeoutId)
     }, [draftStorageKey, editingEnsayoId, form, loadingEnsayo])
 
-    const downloadBlob = useCallback((blob: Blob, numeroOt: string) => {
+    const downloadBlob = useCallback((blob: Blob, filename: string) => {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `CBR_${numeroOt}_${new Date().toISOString().slice(0, 10)}.xlsx`
+        a.download = filename
         a.click()
         URL.revokeObjectURL(url)
     }, [])
@@ -468,8 +481,8 @@ export default function CBRForm() {
         try {
             const payload: CBRPayload = { ...form }
             if (withDownload) {
-                const { blob } = await saveAndDownloadCBRExcel(payload, editingEnsayoId ?? undefined)
-                downloadBlob(blob, payload.numero_ot)
+                const { blob, filename } = await saveAndDownloadCBRExcel(payload, editingEnsayoId ?? undefined)
+                downloadBlob(blob, filename || `${buildFormatPreview(form.muestra, 'SU', 'CBR')}.xlsx`)
                 toast.success(editingEnsayoId ? 'Formato CBR actualizado y descargado.' : 'Formato CBR guardado y descargado.')
             } else {
                 await saveCBREnsayo(payload, editingEnsayoId ?? undefined)
@@ -916,6 +929,18 @@ export default function CBRForm() {
                     </button>
                 </div>
             </div>
+        <FormatConfirmModal
+            open={pendingFormatAction !== null}
+            formatLabel={buildFormatPreview(form.muestra, 'SU', 'CBR')}
+            actionLabel={pendingFormatAction ? 'Guardar y Descargar' : 'Guardar'}
+            onClose={() => setPendingFormatAction(null)}
+            onConfirm={() => {
+                if (pendingFormatAction === null) return
+                const shouldDownload = pendingFormatAction
+                setPendingFormatAction(null)
+                void handleSave(shouldDownload)
+            }}
+        />
         </div>
     )
 }
@@ -932,6 +957,18 @@ function Section({ title, icon, children }: {
                 <h2 className="text-sm font-semibold text-foreground">{title}</h2>
             </div>
             <div className="p-4">{children}</div>
+        <FormatConfirmModal
+            open={pendingFormatAction !== null}
+            formatLabel={buildFormatPreview(form.muestra, 'SU', 'CBR')}
+            actionLabel={pendingFormatAction ? 'Guardar y Descargar' : 'Guardar'}
+            onClose={() => setPendingFormatAction(null)}
+            onConfirm={() => {
+                if (pendingFormatAction === null) return
+                const shouldDownload = pendingFormatAction
+                setPendingFormatAction(null)
+                void handleSave(shouldDownload)
+            }}
+        />
         </div>
     )
 }
@@ -956,6 +993,18 @@ function Input({ label, value, onChange, placeholder, onBlur }: {
                 data-lpignore="true"
                 className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
+        <FormatConfirmModal
+            open={pendingFormatAction !== null}
+            formatLabel={buildFormatPreview(form.muestra, 'SU', 'CBR')}
+            actionLabel={pendingFormatAction ? 'Guardar y Descargar' : 'Guardar'}
+            onClose={() => setPendingFormatAction(null)}
+            onConfirm={() => {
+                if (pendingFormatAction === null) return
+                const shouldDownload = pendingFormatAction
+                setPendingFormatAction(null)
+                void handleSave(shouldDownload)
+            }}
+        />
         </div>
     )
 }
@@ -977,6 +1026,18 @@ function NumberInput({ label, value, onChange }: {
                 data-lpignore="true"
                 className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
+        <FormatConfirmModal
+            open={pendingFormatAction !== null}
+            formatLabel={buildFormatPreview(form.muestra, 'SU', 'CBR')}
+            actionLabel={pendingFormatAction ? 'Guardar y Descargar' : 'Guardar'}
+            onClose={() => setPendingFormatAction(null)}
+            onConfirm={() => {
+                if (pendingFormatAction === null) return
+                const shouldDownload = pendingFormatAction
+                setPendingFormatAction(null)
+                void handleSave(shouldDownload)
+            }}
+        />
         </div>
     )
 }
@@ -1002,6 +1063,18 @@ function SelectField({ label, value, onChange, options }: {
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             </div>
+        <FormatConfirmModal
+            open={pendingFormatAction !== null}
+            formatLabel={buildFormatPreview(form.muestra, 'SU', 'CBR')}
+            actionLabel={pendingFormatAction ? 'Guardar y Descargar' : 'Guardar'}
+            onClose={() => setPendingFormatAction(null)}
+            onConfirm={() => {
+                if (pendingFormatAction === null) return
+                const shouldDownload = pendingFormatAction
+                setPendingFormatAction(null)
+                void handleSave(shouldDownload)
+            }}
+        />
         </div>
     )
 }
@@ -1058,6 +1131,18 @@ function TableComputedValue({ value }: {
     return (
         <div className="h-8 px-2 rounded-md border border-input bg-muted/30 text-sm flex items-center justify-center text-foreground font-medium">
             {value != null ? value : '-'}
+        <FormatConfirmModal
+            open={pendingFormatAction !== null}
+            formatLabel={buildFormatPreview(form.muestra, 'SU', 'CBR')}
+            actionLabel={pendingFormatAction ? 'Guardar y Descargar' : 'Guardar'}
+            onClose={() => setPendingFormatAction(null)}
+            onConfirm={() => {
+                if (pendingFormatAction === null) return
+                const shouldDownload = pendingFormatAction
+                setPendingFormatAction(null)
+                void handleSave(shouldDownload)
+            }}
+        />
         </div>
     )
 }
