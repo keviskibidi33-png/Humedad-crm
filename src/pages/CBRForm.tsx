@@ -13,6 +13,7 @@ import type {
     CBRLecturaPenetracionRow,
     CBRHinchamientoRow,
 } from '@/types'
+import FormatConfirmModal from '../components/FormatConfirmModal'
 
 const getCurrentYearShort = () => new Date().getFullYear().toString().slice(-2)
 const formatTodayShortDate = () => {
@@ -454,6 +455,8 @@ export default function CBRForm() {
             window.parent.postMessage({ type: 'CLOSE_MODAL' }, '*')
         }
     }, [])
+    const [pendingFormatAction, setPendingFormatAction] = useState<boolean | null>(null)
+
 
     const handleSave = useCallback(async (withDownload: boolean) => {
         if (!form.muestra || !form.numero_ot || !form.realizado_por) {
@@ -892,7 +895,7 @@ export default function CBRForm() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <button
-                        onClick={() => void handleSave(false)}
+                        onClick={() => setPendingFormatAction(false)}
                         disabled={loading}
                         className="h-11 rounded-lg bg-secondary text-secondary-foreground font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
@@ -902,7 +905,7 @@ export default function CBRForm() {
                         }
                     </button>
                     <button
-                        onClick={() => void handleSave(true)}
+                        onClick={() => setPendingFormatAction(true)}
                         disabled={loading}
                         className="h-11 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >

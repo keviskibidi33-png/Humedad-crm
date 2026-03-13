@@ -8,15 +8,9 @@ import {
     saveHumedadEnsayo,
 } from '@/services/api'
 import type { HumedadPayload, HumedadEnsayoDetail } from '@/types'
+import FormatConfirmModal from '../components/FormatConfirmModal'
 
 const getCurrentYearShort = () => new Date().getFullYear().toString().slice(-2)
-const formatTodayShortDate = () => {
-    const d = new Date()
-    const dd = String(d.getDate()).padStart(2, '0')
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    const yy = String(d.getFullYear()).slice(-2)
-    return `${dd}/${mm}/${yy}`
-}
 
 const normalizeMuestraCode = (raw: string): string => {
     const value = raw.trim().toUpperCase()
@@ -174,9 +168,9 @@ const INITIAL_STATE: HumedadFormState = {
     equipo_horno: '-',
     observaciones: '',
     revisado_por: '-',
-    revisado_fecha: formatTodayShortDate(),
+    revisado_fecha: '',
     aprobado_por: '-',
-    aprobado_fecha: formatTodayShortDate(),
+    aprobado_fecha: '',
 }
 
 type CondicionKey = 'condicion_masa_menor' | 'condicion_capas' | 'condicion_temperatura' | 'condicion_excluido'
@@ -547,6 +541,8 @@ export default function HumedadForm() {
         setIsClearDraftModalOpen(false)
         clearLocalDraft()
     }, [clearLocalDraft])
+    const [pendingFormatAction, setPendingFormatAction] = useState<boolean | null>(null)
+
 
     const handleSave = useCallback(async (withDownload: boolean) => {
         if (!form.muestra || !form.numero_ot || !form.realizado_por) {
@@ -887,7 +883,7 @@ export default function HumedadForm() {
                             Limpiar datos
                         </button>
                         <button
-                            onClick={() => void handleSave(false)}
+                            onClick={() => setPendingFormatAction(false)}
                             disabled={loading}
                             className="h-11 rounded-lg bg-secondary text-secondary-foreground font-medium
                                    hover:bg-secondary/80 transition-colors disabled:opacity-50
@@ -899,7 +895,7 @@ export default function HumedadForm() {
                             }
                         </button>
                         <button
-                            onClick={() => void handleSave(true)}
+                            onClick={() => setPendingFormatAction(true)}
                             disabled={loading}
                             className="h-11 rounded-lg bg-primary text-primary-foreground font-medium
                                    hover:bg-primary/90 transition-colors disabled:opacity-50
@@ -1197,6 +1193,19 @@ function MetodoGrid({
                     </div>
                 ))}
             </div>
+            <FormatConfirmModal
+                open={pendingFormatAction !== null}
+                formatLabel={`Formato N-xxxx-SU-${new Date().getFullYear().toString().slice(-2)} HUMEDAD`}
+                actionLabel={pendingFormatAction ? 'Guardar y Descargar' : 'Guardar'}
+                onClose={() => setPendingFormatAction(null)}
+                onConfirm={() => {
+                    if (pendingFormatAction === null) return
+                    const shouldDownload = pendingFormatAction
+                    setPendingFormatAction(null)
+                    void handleSave(shouldDownload)
+                }}
+            />
+
         </div>
     )
 }
