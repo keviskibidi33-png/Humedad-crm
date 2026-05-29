@@ -570,10 +570,6 @@ export default function HumedadForm() {
             toast.error('Complete los campos obligatorios: Muestra, N° OT, Realizado por')
             return
         }
-        if (!minimoHastaFila7Completo) {
-            toast.error('Si ya comenzó Datos del Ensayo, complete mínimo hasta la fila 7: Masa del agua (5-3).')
-            return
-        }
 
         setLoading(true)
         try {
